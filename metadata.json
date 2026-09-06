@@ -1,0 +1,6 @@
+{
+  "name": "OpenVintage",
+  "description": "Modular compatibility and performance platform for legacy hardware, graphics IR, CPU IR, and intelligent execution scheduling.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
