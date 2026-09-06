@@ -28,7 +28,11 @@ if [ ! -e "${EDK2_PATH}/OpenVintagePkg" ]; then
 fi
 
 cd "${EDK2_PATH}"
+export WORKSPACE="${EDK2_PATH}"
+export PACKAGES_PATH="${EDK2_PATH}:${WORKSPACE_ROOT}"
+set +u
 source edksetup.sh BaseTools
+set -u
 
 echo "[+] Initiating EDK II Platform Build for OpenVintagePkg..."
 build -p OpenVintagePkg/OpenVintagePkg.dsc -a X64 -t GCC5 -b DEBUG
@@ -41,6 +45,11 @@ cp -f "${EDK2_PATH}/Build/OpenVintageX64/DEBUG_GCC5/X64/OpenVintageBootApp.efi" 
       "${WORKSPACE_ROOT}/OpenVintagePkg/OpenVintageBootApp/OpenVintageBootApp.efi"
 cp -f "${EDK2_PATH}/Build/OpenVintageX64/DEBUG_GCC5/X64/OpenVintageBootApp.efi" \
       "${WORKSPACE_ROOT}/bin/OpenVintageBootApp.efi"
+
+cp -f "${EDK2_PATH}/Build/OpenVintageX64/DEBUG_GCC5/X64/OvSelfTestApp.efi" \
+      "${WORKSPACE_ROOT}/OpenVintagePkg/Tests/OvSelfTestApp.efi"
+cp -f "${EDK2_PATH}/Build/OpenVintageX64/DEBUG_GCC5/X64/OvSelfTestApp.efi" \
+      "${WORKSPACE_ROOT}/bin/OvSelfTestApp.efi"
 
 cp -f "${EDK2_PATH}/Build/OpenVintageX64/DEBUG_GCC5/X64/OpenVintageHalDxe.efi" \
       "${WORKSPACE_ROOT}/OpenVintagePkg/Drivers/OpenVintageHalDxe/OpenVintageHalDxe.efi"

@@ -1,0 +1,27 @@
+## @file
+#  OpenVintage Configuration Library INF
+#
+#  Copyright (c) 2026 OpenVintage Project. All rights reserved.
+#  SPDX-License-Identifier: BSD-2-Clause-Patent
+##
+
+[Defines]
+  INF_VERSION                    = 0x00010005
+  BASE_NAME                      = OvConfigLib
+  FILE_GUID                      = C3D4E5F6-7A8B-4C01-9D2E-3F4A5B6C7D8E
+  MODULE_TYPE                    = BASE
+  VERSION_STRING                 = 1.0
+  LIBRARY_CLASS                  = OvConfigLib
+
+[Sources]
+  OvConfig.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+  OpenVintagePkg/OpenVintagePkg.dec
+
+[LibraryClasses]
+  BaseLib
+  BaseMemoryLib
+  PrintLib
+  OvLoggerLib

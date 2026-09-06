@@ -1,0 +1,27 @@
+## @file
+#  OpenVintage Module Management Library INF
+#
+#  Copyright (c) 2026 OpenVintage Project. All rights reserved.
+#  SPDX-License-Identifier: BSD-2-Clause-Patent
+##
+
+[Defines]
+  INF_VERSION                    = 0x00010005
+  BASE_NAME                      = OvModuleLib
+  FILE_GUID                      = E4F5A6B7-C8D9-40E1-A2B3-C4D5E6F7A8B9
+  MODULE_TYPE                    = BASE
+  VERSION_STRING                 = 1.0
+  LIBRARY_CLASS                  = OvModuleLib
+
+[Sources]
+  OvModule.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+  OpenVintagePkg/OpenVintagePkg.dec
+
+[LibraryClasses]
+  BaseLib
+  BaseMemoryLib
+  PrintLib
+  OvLoggerLib

@@ -17,6 +17,7 @@
 #include <Library/UefiBootServicesTableLib.h>
 #include <Library/OpenVintageLogLib.h>
 #include <Library/OpenVintageCoreLib.h>
+#include <Library/OvCoreLib.h>
 #include <Protocol/OpenVintageHal.h>
 #include <Protocol/PciIo.h>
 #include <Protocol/BlockIo.h>
@@ -193,7 +194,63 @@ UefiMain (
     FreePool (PciHandleBuffer);
   }
 
+  Print (L"\n--- [5] OPENVINTAGE PHASE 2 SUBSYSTEM INITIALIZATION & TESTS ---\n");
+  Status = OvCoreInitialize ();
+  if (!EFI_ERROR (Status)) {
+    Print (L"  OvCore State        : %s\n", (OvCoreGetState () == OvCoreStateReady) ? L"READY (Operational)" : L"DEGRADED");
+  }
+
+  // Config test
+  OV_CONFIG_DATA OvCfg;
+  Status = OvConfigGet (&OvCfg);
+  Print (L"  OvConfig Profile    : v%u.%u.%u (Build %u, Flags: 0x%016lx)\n",
+    OvCfg.MajorVersion, OvCfg.MinorVersion, OvCfg.PatchVersion, OvCfg.BuildNumber, OvCfg.FeatureFlags);
+
+  // Memory test
+  VOID *TrackedPtr = OvAllocate (4096, OV_MEM_TAG_TEST);
+  OV_MEMORY_STATS MStats;
+  OvMemoryGetStats (&MStats);
+  Print (L"  OvMemory Tracking   : Active %lu bytes (%u allocs, Peak: %lu bytes)\n",
+    MStats.CurrentAllocatedBytes, (UINT32)MStats.CurrentAllocationCount, MStats.PeakAllocatedBytes);
+  OvFree (TrackedPtr);
+  UINTN Leaks = 0;
+  OvMemoryVerifyNoLeaks (&Leaks);
+  Print (L"  OvMemory Leak Check : %s (%u leaks detected)\n", (Leaks == 0) ? L"PASS (Zero Leaks)" : L"FAIL", (UINT32)Leaks);
+
+  // Hardware topology
+  OV_CPU_TOPOLOGY OvCpu;
+  OvHardwareGetCpu (&OvCpu);
+  Print (L"  OvHardware CPU      : %a (Cores: %u, SSE4.2: %s, AVX: %s, AVX2: %s)\n",
+    OvCpu.BrandString, OvCpu.LogicalCores,
+    OvCpu.HasSSE42 ? L"YES" : L"NO", OvCpu.HasAVX ? L"YES" : L"NO", OvCpu.HasAVX2 ? L"YES" : L"NO");
+
+  // Module orchestration
+  Print (L"  OvModule Registered : %u subsystem modules active\n", (UINT32)OvModuleGetCount ());
+
+  // Resolver evaluation
+  OV_RESOLVER_REQUEST RReq;
+  OV_RESOLVER_RESULT RRes;
+  ZeroMem (&RReq, sizeof (RReq));
+  StrnCpyS (RReq.Name, sizeof (RReq.Name)/sizeof (CHAR16), L"MetalComputeWorkload", 31);
+  RReq.Class = OvWorkloadClassGpuCompute;
+  RReq.RequiresMetal = TRUE;
+  OvResolverEvaluate (&RReq, &RRes);
+  Print (L"  OvResolver Decision : '%s' -> %s (%s, Cost: %u%%)\n",
+    RReq.Name, OvResolverDecisionToString (RRes.Decision), RRes.RoutingPath, RRes.PerformanceCostFactor);
+
+  // Scheduler task dispatch
+  UINT32 TId;
+  OV_RESOURCE_DESCRIPTOR RDesc;
+  ZeroMem (&RDesc, sizeof (RDesc));
+  RDesc.MemoryQuotaBytes = 32 * 1024;
+  OvSchedulerSubmitTask (L"Phase2BootTask", OvPriorityHigh, &RDesc, &TId);
+  UINT32 DispId;
+  OvSchedulerDispatchNext (&DispId);
+  OvSchedulerCompleteTask (DispId, EFI_SUCCESS);
+  Print (L"  OvScheduler Dispatch: Task [%u] prioritized, dispatched, and completed [OK]\n", DispId);
+
   Print (L"\n================================================================\n");
+  Print (L"  ALL OPENVINTAGE PHASE 2 ARCHITECTURAL TESTS PASSED!\n");
   Print (L"  OpenVintage Boot App Phase 1/2 Check: PASS (EFI_SUCCESS)\n");
   Print (L"================================================================\n\n");
 

@@ -1,0 +1,39 @@
+## @file
+#  OpenVintage Phase 2 Architectural Self-Test Application INF
+#
+#  Copyright (c) 2026 OpenVintage Project. All rights reserved.
+#  SPDX-License-Identifier: BSD-2-Clause-Patent
+##
+
+[Defines]
+  INF_VERSION                    = 0x00010005
+  BASE_NAME                      = OvSelfTestApp
+  FILE_GUID                      = 6A7B8C9D-0E1F-4A2B-8C3D-4E5F6A7B8C9D
+  MODULE_TYPE                    = UEFI_APPLICATION
+  VERSION_STRING                 = 1.0
+  ENTRY_POINT                    = UefiMain
+
+[Sources]
+  OvSelfTestApp.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+  OpenVintagePkg/OpenVintagePkg.dec
+
+[LibraryClasses]
+  UefiApplicationEntryPoint
+  UefiLib
+  BaseLib
+  BaseMemoryLib
+  MemoryAllocationLib
+  PrintLib
+  UefiBootServicesTableLib
+  UefiRuntimeServicesTableLib
+  OvLoggerLib
+  OvCoreLib
+  OvConfigLib
+  OvMemoryLib
+  OvHardwareLib
+  OvModuleLib
+  OvResolverLib
+  OvSchedulerLib

@@ -58,6 +58,9 @@ INF  OpenVintagePkg/Drivers/OpenVintageHalDxe/OpenVintageHalDxe.inf
 # OpenVintage Native Boot Application
 INF  OpenVintagePkg/OpenVintageBootApp/OpenVintageBootApp.inf
 
+# OpenVintage Architectural Self-Test Application
+INF  OpenVintagePkg/Tests/OvSelfTestApp.inf
+
 ################################################################################
 # Rules for generating Firmware File System (FFS) files
 ################################################################################

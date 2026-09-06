@@ -32,6 +32,14 @@
   PrintLib
   OpenVintageLogLib
   OpenVintageCoreLib
+  OvLoggerLib
+  OvCoreLib
+  OvConfigLib
+  OvMemoryLib
+  OvHardwareLib
+  OvModuleLib
+  OvResolverLib
+  OvSchedulerLib
 
 [Protocols]
   gOpenVintageHalProtocolGuid       ## SOMETIMES_CONSUMES

@@ -1,0 +1,28 @@
+## @file
+#  OpenVintage Resource & Workload Scheduler Library INF
+#
+#  Copyright (c) 2026 OpenVintage Project. All rights reserved.
+#  SPDX-License-Identifier: BSD-2-Clause-Patent
+##
+
+[Defines]
+  INF_VERSION                    = 0x00010005
+  BASE_NAME                      = OvSchedulerLib
+  FILE_GUID                      = F1A2B3C4-D5E6-47F8-89A0-B1C2D3E4F5A6
+  MODULE_TYPE                    = BASE
+  VERSION_STRING                 = 1.0
+  LIBRARY_CLASS                  = OvSchedulerLib
+
+[Sources]
+  OvScheduler.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+  OpenVintagePkg/OpenVintagePkg.dec
+
+[LibraryClasses]
+  BaseLib
+  BaseMemoryLib
+  PrintLib
+  OvLoggerLib
+  OvConfigLib

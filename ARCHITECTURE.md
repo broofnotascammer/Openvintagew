@@ -65,17 +65,40 @@ OpenVintagePkg/
 ├── OpenVintagePkg.fdf              # Flash layout (FD and FV definitions)
 ├── Include/
 │   ├── Library/
-│   │   ├── OpenVintageCoreLib.h    # Core platform detection API
-│   │   └── OpenVintageLogLib.h     # Subsystem logging API
+│   │   ├── OvCoreLib.h             # Phased initialization & central state
+│   │   ├── OvConfigLib.h           # Profile management & bitwise flags
+│   │   ├── OvMemoryLib.h           # Tracked tagged allocation & leak check
+│   │   ├── OvHardwareLib.h         # Unified CPU, RAM, GPU, Storage topology
+│   │   ├── OvModuleLib.h           # Module registration & lifecycle
+│   │   ├── OvResolverLib.h         # Capability matrix & workload routing
+│   │   ├── OvSchedulerLib.h        # Priority task queue & resource limits
+│   │   ├── OvLoggerLib.h           # Tagged multi-level logging API
+│   │   ├── OpenVintageCoreLib.h    # Legacy platform detection API
+│   │   └── OpenVintageLogLib.h     # Low-level logging API
 │   └── Protocol/
 │       ├── OpenVintageHal.h        # OPEN_VINTAGE_HAL_PROTOCOL
 │       └── OpenVintagePlatform.h   # OPEN_VINTAGE_PLATFORM_PROTOCOL
+├── Core/                           # Core orchestration & configuration
+│   ├── OvCore.c / OvCoreLib.inf
+│   ├── OvConfig.c / OvConfigLib.inf
+│   └── OvModule.c / OvModuleLib.inf
+├── Hardware/                       # Hardware discovery & topology
+│   └── OvHardware.c / OvHardwareLib.inf
+├── Memory/                         # Tracked memory management
+│   └── OvMemory.c / OvMemoryLib.inf
+├── Resolver/                       # Workload routing & capability matrix
+│   └── OvResolver.c / OvResolverLib.inf
+├── Scheduler/                      # Priority scheduler & task queue
+│   └── OvScheduler.c / OvSchedulerLib.inf
 ├── Library/
-│   ├── OpenVintageCoreLib/         # CPUID detection & memory map analysis
-│   └── OpenVintageLogLib/          # Low-overhead serial/screen log driver
+│   ├── OvLoggerLib/                # Structured tagged logger
+│   ├── OpenVintageCoreLib/         # Base CPUID & Memory map
+│   └── OpenVintageLogLib/          # Base serial/screen logger
 ├── Drivers/
 │   └── OpenVintageHalDxe/          # DXE Service Protocol Provider
 ├── OpenVintageBootApp/             # Native X64 UEFI Entry Point
+├── Tests/                          # Architectural test application
+│   └── OvSelfTestApp.c / .inf      # 8-suite self-test diagnostic
 └── Firmware/                       # Generated flash image and volumes
     ├── OPENVINTAGE.fd              # 4.0 MB Flash Device Image
     └── OPENVINTAGE_DXEFV.Fv        # 4.0 MB DXE Firmware Volume
@@ -99,9 +122,45 @@ The firmware definition file (`OpenVintagePkg.fdf`) defines a 4MB memory-mapped 
 | 0x00000000 - 0x00400000 : OPENVINTAGE_DXEFV (4096 KB)             |
 |   ├── OpenVintageHalDxe.ffs (DXE Driver + Depex + Version)        |
 |   ├── OpenVintageBootApp.ffs (UEFI Application + UI Section)      |
-|   └── Free Flash Space (3978 KB available for additional modules) |
+|   ├── OvSelfTestApp.ffs (Diagnostic Self-Test Application)        |
+|   └── Free Flash Space (3936 KB available for additional modules) |
 +-------------------------------------------------------------------+
 ```
+
+### 2.4 Modular Foundation Subsystems (Phase 2)
+The OpenVintage architecture decomposes system responsibilities into eight specialized, decoupled subsystems:
+
+1. **OvCoreLib (`OpenVintagePkg/Core/OvCoreLib.*`)**:
+   Central coordinator orchestrating a strict 7-phase boot initialization pipeline:
+   `Logger` ──► `Memory` ──► `Config` ──► `Hardware` ──► `Modules` ──► `Resolver` ──► `Scheduler`.
+   Maintains the global platform state machine (`Uninitialized` ──► `Initializing` ──► `Ready` / `Degraded` / `Shutdown`).
+
+2. **OvConfigLib (`OpenVintagePkg/Core/OvConfigLib.*`)**:
+   Dynamic hardware profile management and bitwise feature flags:
+   `CompatibilityMode`, `GpuTranslation`, `CpuEmulation`, `MemoryTrack`, `PowerOptimize`, `DebugVerbosity`.
+   Allows runtime overriding of hardware targets and silicon generation profiles.
+
+3. **OvMemoryLib (`OpenVintagePkg/Memory/OvMemoryLib.*`)**:
+   Memory safety layer with tagged allocations (`CORE`, `CONF`, `HARD`, `MODU`, `RESO`, `SCHD`, `TEST`, `BUFF`), 64-byte alignment, internal canary validation, cumulative leak detection (`OvMemoryVerifyNoLeaks`), and real-time telemetry (peak bytes, active counts).
+
+4. **OvHardwareLib (`OpenVintagePkg/Hardware/OvHardwareLib.*`)**:
+   Unified topology discovery engine interrogating:
+   - **CPU**: CPUID feature extraction (Stepping, Microcode, SSE4.1/4.2, AVX, AVX2, AES, cores, brand string).
+   - **RAM**: UEFI memory map descriptors, total physical memory calculation, and conventional free pages.
+   - **GPU**: Graphics Output Protocol (GOP) resolution probe combined with PCI Class 0x03 configuration space enumeration (Intel HD, Nvidia GeForce, AMD Radeon).
+   - **Storage**: Block I/O device discovery and mass storage controller classification (SATA/AHCI/NVMe).
+
+5. **OvModuleLib (`OpenVintagePkg/Core/OvModuleLib.*`)**:
+   Dynamic module registry supporting registration by priority, lifecycle states (`Registered`, `Initialized`, `Active`, `Degraded`, `Halted`), and dependency-ordered initialization and shutdown.
+
+6. **OvResolverLib (`OpenVintagePkg/Resolver/OvResolverLib.*`)**:
+   Intelligent hardware-aware workload resolution matrix. Dissects compute and graphical requirements (Metal, Vulkan, AVX2, SIMD) against detected silicon capabilities to select optimal execution pathways: `Native`, `Translated` (via OVIR), `Emulated`, `Fallback` (CPU software rasterizer), or `Unsupported`, accompanied by performance cost factor estimates.
+
+7. **OvSchedulerLib (`OpenVintagePkg/Scheduler/OvSchedulerLib.*`)**:
+   Priority-based task queueing engine (5 priority levels: `Idle` to `Realtime`). Enforces task resource quotas (memory, time limits), provides round-robin dispatch, and records task lifecycle performance metrics.
+
+8. **OvLoggerLib (`OpenVintagePkg/Library/OvLoggerLib/`)**:
+   High-performance structured logger formatting logs with timestamps, severity levels (`[DBG]`, `[INF]`, `[WRN]`, `[ERR]`), and subsystem tags (`[MEM]`, `[CONF]`, `[HW]`, `[MOD]`, `[RESO]`, `[SCHD]`, `[TEST]`) across UEFI console and serial output.
 
 ---
 

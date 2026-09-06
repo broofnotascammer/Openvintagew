@@ -1,0 +1,30 @@
+## @file
+#  OpenVintage Enhanced Logger Library INF
+#
+#  Copyright (c) 2026 OpenVintage Project. All rights reserved.
+#  SPDX-License-Identifier: BSD-2-Clause-Patent
+##
+
+[Defines]
+  INF_VERSION                    = 0x00010005
+  BASE_NAME                      = OvLoggerLib
+  FILE_GUID                      = 4A7B2C10-8E34-4521-9B5C-2F1E0D9C8A7B
+  MODULE_TYPE                    = BASE
+  VERSION_STRING                 = 1.0
+  LIBRARY_CLASS                  = OvLoggerLib
+
+[Sources]
+  OvLoggerLib.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+  OpenVintagePkg/OpenVintagePkg.dec
+
+[LibraryClasses]
+  BaseLib
+  BaseMemoryLib
+  PrintLib
+  IoLib
+  UefiLib
+  UefiBootServicesTableLib
+  UefiRuntimeServicesTableLib

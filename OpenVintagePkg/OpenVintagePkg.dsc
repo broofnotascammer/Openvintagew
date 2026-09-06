@@ -56,6 +56,14 @@
   # OpenVintage Custom Libraries
   OpenVintageCoreLib|OpenVintagePkg/Library/OpenVintageCoreLib/OpenVintageCoreLib.inf
   OpenVintageLogLib|OpenVintagePkg/Library/OpenVintageLogLib/OpenVintageLogLib.inf
+  OvLoggerLib|OpenVintagePkg/Library/OvLoggerLib/OvLoggerLib.inf
+  OvConfigLib|OpenVintagePkg/Core/OvConfigLib.inf
+  OvMemoryLib|OpenVintagePkg/Memory/OvMemoryLib.inf
+  OvHardwareLib|OpenVintagePkg/Hardware/OvHardwareLib.inf
+  OvModuleLib|OpenVintagePkg/Core/OvModuleLib.inf
+  OvResolverLib|OpenVintagePkg/Resolver/OvResolverLib.inf
+  OvSchedulerLib|OpenVintagePkg/Scheduler/OvSchedulerLib.inf
+  OvCoreLib|OpenVintagePkg/Core/OvCoreLib.inf
 
 [LibraryClasses.common.UEFI_APPLICATION]
   MemoryAllocationLib|MdePkg/Library/UefiMemoryAllocationLib/UefiMemoryAllocationLib.inf
@@ -79,9 +87,18 @@
   # OpenVintage Libraries
   OpenVintagePkg/Library/OpenVintageLogLib/OpenVintageLogLib.inf
   OpenVintagePkg/Library/OpenVintageCoreLib/OpenVintageCoreLib.inf
+  OpenVintagePkg/Library/OvLoggerLib/OvLoggerLib.inf
+  OpenVintagePkg/Core/OvConfigLib.inf
+  OpenVintagePkg/Memory/OvMemoryLib.inf
+  OpenVintagePkg/Hardware/OvHardwareLib.inf
+  OpenVintagePkg/Core/OvModuleLib.inf
+  OpenVintagePkg/Resolver/OvResolverLib.inf
+  OpenVintagePkg/Scheduler/OvSchedulerLib.inf
+  OpenVintagePkg/Core/OvCoreLib.inf
 
   # OpenVintage DXE Drivers
   OpenVintagePkg/Drivers/OpenVintageHalDxe/OpenVintageHalDxe.inf
 
-  # OpenVintage Boot Application
+  # OpenVintage Applications & Architectural Test Suite
   OpenVintagePkg/OpenVintageBootApp/OpenVintageBootApp.inf
+  OpenVintagePkg/Tests/OvSelfTestApp.inf

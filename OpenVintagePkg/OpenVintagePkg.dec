@@ -25,6 +25,30 @@
   ## @libraryclass  Provides OpenVintage Diagnostic and Serial Logging services
   OpenVintageLogLib|Include/Library/OpenVintageLogLib.h
 
+  ## @libraryclass  Enhanced Multi-level Logger with Serial & Subsystem Tagging
+  OvLoggerLib|Include/Library/OvLoggerLib.h
+
+  ## @libraryclass  Configuration storage, profile management and feature flags
+  OvConfigLib|Include/Library/OvConfigLib.h
+
+  ## @libraryclass  Memory allocation, tracking and leak detection abstraction
+  OvMemoryLib|Include/Library/OvMemoryLib.h
+
+  ## @libraryclass  Hardware discovery and topology inspection
+  OvHardwareLib|Include/Library/OvHardwareLib.h
+
+  ## @libraryclass  Subsystem module lifecycle management
+  OvModuleLib|Include/Library/OvModuleLib.h
+
+  ## @libraryclass  Workload resolution decision framework
+  OvResolverLib|Include/Library/OvResolverLib.h
+
+  ## @libraryclass  Task scheduling and resource budgeting
+  OvSchedulerLib|Include/Library/OvSchedulerLib.h
+
+  ## @libraryclass  Unified Core runtime coordinator
+  OvCoreLib|Include/Library/OvCoreLib.h
+
 [Guids]
   gOpenVintagePkgTokenSpaceGuid  = { 0x3F58A74E, 0x2914, 0x40DF, { 0x88, 0x31, 0x81, 0x17, 0x72, 0x6F, 0x9C, 0x32 } }
 

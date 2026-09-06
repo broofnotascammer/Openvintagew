@@ -5,12 +5,12 @@
 PROJECT STATUS & ENGINEERING MILESTONES
 Platform: OpenVintage Ecosystem
 Last Updated: 2026-09-06
-Firmware Release: v0.2.0 (Verified EDK II Build)
+Firmware Release: v0.2.0-Phase-2 (Verified EDK II Build & QEMU Validation)
 ================================================================================
 ```
 
 ## Current Phase
-**Phase 1 COMPLETE & VERIFIED — Phase 2 Architecture Active**
+**Phase 2 COMPLETE & VERIFIED — Architectural Firmware & Subsystem Foundation**
 
 ---
 
@@ -21,69 +21,99 @@ Firmware Release: v0.2.0 (Verified EDK II Build)
 | **EDK II Package Declaration** | `OpenVintagePkg/OpenVintagePkg.dec` | Verified | EDK II Parser (`build.py`) |
 | **Platform Description (DSC)** | `OpenVintagePkg/OpenVintagePkg.dsc` | Verified | EDK II Compilation (GCC5 / X64) |
 | **Flash Definition File (FDF)** | `OpenVintagePkg/OpenVintagePkg.fdf` | Verified | `GenFds` Flash Synthesis |
-| **Core Hardware Library** | `OpenVintagePkg/Library/OpenVintageCoreLib/` | Built | Linkage into DXE & BootApp |
-| **Log Subsystem Library** | `OpenVintagePkg/Library/OpenVintageLogLib/` | Built | Linkage into DXE & BootApp |
+| **OvCore Subsystem** | `OpenVintagePkg/Core/OvCoreLib.*` | Built | Core Orchestrator & State Machine |
+| **OvConfig Subsystem** | `OpenVintagePkg/Core/OvConfigLib.*` | Built | Dynamic Hardware Profiles & Flags |
+| **OvMemory Subsystem** | `OpenVintagePkg/Memory/OvMemoryLib.*` | Built | Tagged Allocation & Leak Verification |
+| **OvHardware Subsystem** | `OpenVintagePkg/Hardware/OvHardwareLib.*`| Built | Unified CPU, RAM, GPU, PCI Topology |
+| **OvModule Subsystem** | `OpenVintagePkg/Core/OvModuleLib.*` | Built | Module Lifecycle & Registration |
+| **OvResolver Subsystem** | `OpenVintagePkg/Resolver/OvResolverLib.*`| Built | Workload Routing Decision Matrix |
+| **OvScheduler Subsystem** | `OpenVintagePkg/Scheduler/OvSchedulerLib.*`| Built | Priority Queue & Task Dispatch |
+| **OvLogger Subsystem** | `OpenVintagePkg/Library/OvLoggerLib/` | Built | Multi-Level Formatted & Tagged Log |
 | **HAL DXE Driver** | `OpenVintagePkg/Drivers/OpenVintageHalDxe/` | Built | `OpenVintageHalDxe.efi` (~8.2 KB) |
-| **Boot Application Binary** | `bin/OpenVintageBootApp.efi` | Built | PE32+ x86-64 Executable (~13 KB) |
+| **Boot Application Binary** | `bin/OpenVintageBootApp.efi` | Built | PE32+ x86-64 Executable (~17 KB) |
+| **Self-Test Diagnostic Suite**| `bin/OvSelfTestApp.efi` | Built | PE32+ x86-64 Executable (~42 KB) |
 | **Flash Device Image** | `bin/OPENVINTAGE.fd` | Generated | 4.0 MB Flash ROM Image |
-| **Firmware Volume** | `OpenVintagePkg/Firmware/OPENVINTAGE_DXEFV.Fv` | Generated | 4.0 MB PI Firmware Volume |
+| **Firmware Volume** | `OpenVintagePkg/Firmware/OPENVINTAGE_DXEFV.Fv`| Generated | 4.0 MB PI Firmware Volume |
 | **Automated Build Script** | `scripts/build_firmware.sh` | Operational | Builds and populates all binaries |
-| **QEMU Test Harness** | `scripts/test_qemu.sh` | Operational | Headless UEFI Boot Test (PASS) |
+| **QEMU Test Harness** | `scripts/test_qemu.sh` | Operational | Headless UEFI Boot & Test (PASS) |
 
 ---
 
-## Completed Milestones
-- [x] **OpenVintage EDK II Package**: Native directory layout with `.dec`, `.dsc`, `.fdf`, and sub-packages.
-- [x] **OpenVintageBootApp.efi**: Compiled as X64 native UEFI application with clean entry point (`UefiMain`).
-- [x] **Runtime & Logging Subsystem**: Operational across screen and serial interfaces.
-- [x] **Silicon Detection Engine**: CPUID decoding (Family, Model, Stepping, Brand String, SSE4.1, SSE4.2, AVX, AVX2, AES-NI).
-- [x] **Memory Map Topology**: Full UEFI memory descriptor enumeration with physical RAM calculation.
-- [x] **Device Discovery**: Active UEFI handle scanning, GOP framebuffer resolution probe, and PCI bus enumeration.
-- [x] **Clean Exit Protocol**: Graceful return to UEFI Boot Services returning `EFI_SUCCESS`.
-- [x] **Firmware Image Synthesis**: Successfully compiled `OPENVINTAGE.fd` and `OPENVINTAGE_DXEFV.Fv` with `GenFds`.
-- [x] **QEMU Execution Verification**: Verified end-to-end boot sequence (Power-on -> OVMF -> OpenVintageBootApp -> Diagnostics -> Success).
+## Completed Milestones (Phase 2)
+- [x] **Core Orchestration (`OvCore`)**: Unified phased initialization pipeline (Logger -> Memory -> Config -> Hardware -> Modules -> Resolver -> Scheduler) and state transitions.
+- [x] **Profile & Config Engine (`OvConfig`)**: Dynamic hardware platform profiling, bitwise feature flags, and profile overrides.
+- [x] **Tracked Memory Manager (`OvMemory`)**: Tagged allocations (`CORE`, `CONF`, `HARD`, `MODU`, `RESO`, `SCHD`, `TEST`, `BUFF`), allocation counters, peak memory tracking, and leak detector (0 leaks verified).
+- [x] **Comprehensive Hardware Abstraction (`OvHardware`)**: Real hardware discovery via CPUID instruction flags, UEFI memory descriptors, GOP framebuffer querying, and PCI device tree traversal.
+- [x] **Module Lifecycle System (`OvModule`)**: Dynamic module registration, priority sequencing, health states, and bulk initialization.
+- [x] **Capability Resolver (`OvResolver`)**: Hardware-aware workload evaluation matrix routing compute workloads (Metal, AVX2, Vulkan) across Native, Translated (OVIR), or Fallback pipelines with performance cost factors.
+- [x] **Priority Scheduler (`OvScheduler`)**: Multi-priority task queues (Idle to Realtime), resource quotas, round-robin dispatch, and runtime telemetry.
+- [x] **Logging Infrastructure (`OvLogger`)**: Structured timestamped, leveled (`DBG`, `INF`, `WRN`, `ERR`), tagged console and serial logging.
+- [x] **Diagnostic Self-Test Application (`OvSelfTestApp.efi`)**: Full 8-test unit and integration test suite asserting state integrity across all subsystems.
+- [x] **QEMU Automated Verification**: Headless QEMU test harness validating both `OpenVintageBootApp.efi` and `OvSelfTestApp.efi` with captured serial proof.
 
 ---
 
 ## Last Successful Test Run (QEMU 7.2.22)
-- **Harness**: `scripts/test_qemu.sh Haswell 15`
+- **Harness**: `scripts/test_qemu.sh Haswell 25`
 - **Firmware**: OVMF X64 (`/usr/share/ovmf/OVMF.fd`)
 - **Virtual Disk**: 64MB FAT32 ESP Disk (`/tmp/openvintage_test_disk.img`)
-- **Captured Output**:
+- **Captured Serial Proof**:
   ```
-  ================================================================
-   OpenVintage Modular Platform & Firmware Architecture (Phase 2)
-   Target: Legacy Intel Mac / x86_64 Silicon (2006 - 2015)
-  ================================================================
-  [OV-LOG] OpenVintage Runtime Subsystem v0.2.0 initialized.
-  [OV-LOG] HAL / Platform abstraction binding: ACTIVE
-  --- [1] FIRMWARE & PLATFORM IDENTIFICATION ---
-    Firmware Vendor     : EDK II
-    Firmware Revision   : 0x00010000 (1.0)
-    UEFI Specification  : 2.70
-  --- [2] CPU ARCHITECTURE & INSTRUCTION DETECTIONS ---
-    Processor Brand     : Intel Core Processor (Haswell)
-    Family / Model / Stp: Family 0x06, Model 0x3C, Stepping 0x04
-    Silicon Profile     : Intel Haswell / Broadwell (22nm/14nm)
-    Instruction Sets    : SSE4.1 [YES]  SSE4.2 [YES]  AES-NI [YES]
-    Vector Acceleration : AVX [YES]  AVX2 [YES]
-  --- [3] PHYSICAL MEMORY TOPOLOGY ---
-    Total System Memory : 2047 MB (1 GB)
-    Available Free RAM  : 2007 MB
-    Reserved / Firmware : 40 MB
-  --- [4] UEFI PROTOCOLS & DEVICE ENUMERATION ---
-    Total Active Handles: 183
-    PCI Bus Devices     : 5
-    Block I/O Devices   : 2
-    GOP Framebuffer     : 1280x800 @ 0x80000000 (Size: 4000 KB)
-  ================================================================
+  --- [5] OPENVINTAGE PHASE 2 SUBSYSTEM INITIALIZATION & TESTS ---
+  [OV:17:44:49:DBG:MEM] Memory subsystem initialized with allocation tracking
+  [OV:17:44:49:DBG:CONF] Configuration initialized (v0.2.0-Phase-2, Flags: 0x000000000000007F)
+  [OV:17:44:49:DBG:HW] Hardware abstraction layer initialized
+  [OV:17:44:49:DBG:MOD] Module orchestration engine initialized
+  [OV:17:44:49:DBG:MOD] Registered module [1]: 'OvCore' (Type 1, v131072)
+  [OV:17:44:49:DBG:MOD] Registered module [2]: 'OvMemory' (Type 3, v131072)
+  [OV:17:44:49:DBG:MOD] Registered module [3]: 'OvHardware' (Type 4, v131072)
+  [OV:17:44:50:DBG:MOD] Registered module [4]: 'OvResolver' (Type 5, v131072)
+  [OV:17:44:50:DBG:MOD] Registered module [5]: 'OvScheduler' (Type 6, v131072)
+  [OV:17:44:50:INF:MOD] Initializing 5 registered module(s)...
+  [OV:17:44:50:INF:MOD] Module 'OvCore' initialized cleanly [ACTIVE]
+  [OV:17:44:50:INF:MOD] Module 'OvMemory' initialized cleanly [ACTIVE]
+  [OV:17:44:50:INF:MOD] Module 'OvHardware' initialized cleanly [ACTIVE]
+  [OV:17:44:50:INF:MOD] Module 'OvResolver' initialized cleanly [ACTIVE]
+  [OV:17:44:50:INF:MOD] Module 'OvScheduler' initialized cleanly [ACTIVE]
+  [OV:17:44:50:DBG:RESO] Resolver framework initialized
+  [OV:17:44:50:DBG:SCHD] Scheduler engine initialized (Profile: Balanced)
+  [OV:17:44:50:INF:CORE] OpenVintage Core Subsystems operational [v0.2.0-P2, State: READY]
+    OvCore State        : READY (Operational)
+    OvConfig Profile    : v0.2.0 (Build 2026, Flags: 0x000000000000007F)
+    OvMemory Tracking   : Active 4096 bytes (1 allocs, Peak: 4096 bytes)
+  [OV:17:44:50:INF:MEM] Memory leak verification: PASS (0 active allocations)
+    OvMemory Leak Check : PASS (Zero Leaks) (0 leaks detected)
+    OvHardware CPU      : Intel Core Processor (Haswell) (Cores: 1, SSE4.2: YES, AVX: YES, AVX2: YES)
+    OvModule Registered : 5 subsystem modules active
+  [OV:17:44:50:DBG:RESO] Workload 'MetalComputeWorkload' resolved to FALLBACK (Cost Factor: 480%) via Metal2 -> OVIR-GPU -> CPU Soft-Rasterizer
+    OvResolver Decision : 'MetalComputeWorkload' -> FALLBACK (Metal2 -> OVIR-GPU -> CPU Soft-Rasterizer, Cost: 480%)
+  [OV:17:44:50:DBG:SCHD] Queued task [1] 'Phase2BootTask' (Priority 3, MemoryQuota: 32768 bytes)
+  [OV:17:44:50:DBG:SCHD] Dispatched task [1] 'Phase2BootTask' (Priority 3)
+  [OV:17:44:50:DBG:SCHD] Task [1] 'Phase2BootTask' completed with Success
+    OvScheduler Dispatch: Task [1] prioritized, dispatched, and completed [OK]
+    ALL OPENVINTAGE PHASE 2 ARCHITECTURAL TESTS PASSED!
     OpenVintage Boot App Phase 1/2 Check: PASS (EFI_SUCCESS)
-  ================================================================
+  ```
+- **Self-Test Suite Verification (`OvSelfTestApp.efi`)**:
+  ```
+       OPENVINTAGE ARCHITECTURAL COMPONENT SELF-TEST SUITE
+  [OV:17:45:20:INF:TEST] [PASS] OvCore: Unified Subsystem Initialization
+  [OV:17:45:20:INF:TEST] [PASS] OvConfig: Profile Management & Bitwise Feature Flags
+  [OV:17:45:20:INF:TEST] [PASS] OvMemory: Tagged Allocation Tracking & Leak Verification
+  [OV:17:45:20:INF:TEST] [PASS] OvHardware: Discovery of CPU, RAM, GPU, Storage, Platform
+  [OV:17:45:21:INF:TEST] [PASS] OvModule: Registration, Status Lifecycle & Orchestration
+  [OV:17:45:21:INF:TEST] [PASS] OvResolver: Hardware-Aware Capability Resolution Matrix
+  [OV:17:45:21:INF:TEST] [PASS] OvScheduler: Priority Queueing, Dispatching & Metrics
+  [OV:17:45:21:INF:TEST] [PASS] OvLogger: Multi-level Formatted & Tagged Logging
+       OPENVINTAGE PHASE 2 SELF-TEST RESULTS SUMMARY
+  OVERALL STATUS: ALL OPENVINTAGE PHASE 2 ARCHITECTURAL TESTS PASSED!
+  [OV:17:45:21:INF:TEST] PHASE 2 VALIDATION: ALL 8 TESTS PASSED CLEANLY
   ```
 - **Exit Code**: `0` (`EFI_SUCCESS`)
 
 ---
 
-## Known Scope & Safety Constraints
-1. **Virtualization Target**: QEMU + OVMF is the primary validated target. Physical hardware flashing onto legacy Mac SPI ROMs requires SPI programmer hardware verification and safety review.
-2. **GPU Direct Acceleration**: Phase 1/2 operates through standard UEFI GOP framebuffers; hardware 3D ring buffers are managed in subsequent OS driver phases.
+## Next Steps: Phase 3
+1. **Dynamic OVIR Intermediate Representation**: Implement shader byte-code translation engine and dynamic runtime patching.
+2. **Apple Silicon / Legacy Intel Mac Model Database**: Expand hardware model lookup table with specific Mac identifiers (e.g., MacBookPro11,3, iMac15,1, MacPro5,1).
+3. **OS Handoff Engine**: Implement boot argument injection, ACPI table override, and device-tree modifications for runtime compatibility.
