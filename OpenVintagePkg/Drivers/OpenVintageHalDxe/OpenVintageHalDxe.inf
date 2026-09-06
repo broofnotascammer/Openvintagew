@@ -1,0 +1,41 @@
+## @file
+#  OpenVintage Hardware Abstraction Layer (HAL) DXE Driver
+#
+#  Copyright (c) 2026 OpenVintage Project. All rights reserved.
+#  SPDX-License-Identifier: BSD-2-Clause-Patent
+##
+
+[Defines]
+  INF_VERSION                    = 0x00010005
+  BASE_NAME                      = OpenVintageHalDxe
+  FILE_GUID                      = C65F932D-4B91-4509-90C8-581907A3B718
+  MODULE_TYPE                    = DXE_DRIVER
+  VERSION_STRING                 = 1.0
+  ENTRY_POINT                    = OpenVintageHalDxeInitialize
+
+[Sources]
+  OpenVintageHalDxe.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+  MdeModulePkg/MdeModulePkg.dec
+  OpenVintagePkg/OpenVintagePkg.dec
+
+[LibraryClasses]
+  UefiDriverEntryPoint
+  UefiBootServicesTableLib
+  UefiLib
+  BaseLib
+  BaseMemoryLib
+  MemoryAllocationLib
+  DebugLib
+  PrintLib
+  OpenVintageLogLib
+  OpenVintageCoreLib
+
+[Protocols]
+  gOpenVintageHalProtocolGuid       ## PRODUCES
+  gEfiPciIoProtocolGuid             ## CONSUMES
+
+[Depex]
+  TRUE

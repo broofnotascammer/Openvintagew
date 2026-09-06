@@ -1,0 +1,77 @@
+## @file
+#  OpenVintage Flash Definition File (.FDF)
+#
+#  Defines Firmware Volume (FV) layout and Flash Device (FD) image mapping.
+#  Follows standard PI architecture (SEC -> PEI -> DXE -> BDS -> OpenVintage Boot).
+#
+#  Copyright (c) 2026 OpenVintage Project. All rights reserved.
+#  SPDX-License-Identifier: BSD-2-Clause-Patent
+##
+
+[Defines]
+  DEFINE FD_BASE_ADDRESS = 0xFFC00000
+  DEFINE FD_SIZE         = 0x00400000
+  DEFINE BLOCK_SIZE      = 0x1000
+  DEFINE NUM_BLOCKS      = 0x400
+
+################################################################################
+# Flash Device Image Definition
+################################################################################
+[FD.OPENVINTAGE]
+BaseAddress   = $(FD_BASE_ADDRESS)
+Size          = $(FD_SIZE)
+ErasePolarity = 1
+BlockSize     = $(BLOCK_SIZE)
+NumBlocks     = $(NUM_BLOCKS)
+
+# Map Firmware Volume into Flash Device
+0x00000000|0x00400000
+FV = OPENVINTAGE_DXEFV
+
+################################################################################
+# OpenVintage DXE Firmware Volume
+################################################################################
+[FV.OPENVINTAGE_DXEFV]
+FvForceRebase      = FALSE
+FvNameGuid         = B3F2746A-78D9-4B55-9E62-85671DA14812
+BlockSize          = 0x10000
+FvAlignment        = 16
+ERASE_POLARITY     = 1
+MEMORY_MAPPED      = TRUE
+STICKY_WRITE       = TRUE
+LOCK_CAP           = TRUE
+LOCK_STATUS        = TRUE
+WRITE_DISABLED_CAP = TRUE
+WRITE_ENABLED_CAP  = TRUE
+WRITE_STATUS       = TRUE
+WRITE_LOCK_CAP     = TRUE
+WRITE_LOCK_STATUS  = TRUE
+READ_DISABLED_CAP  = TRUE
+READ_ENABLED_CAP   = TRUE
+READ_STATUS        = TRUE
+READ_LOCK_CAP      = TRUE
+READ_LOCK_STATUS   = TRUE
+
+# OpenVintage Platform Hardware Abstraction Driver
+INF  OpenVintagePkg/Drivers/OpenVintageHalDxe/OpenVintageHalDxe.inf
+
+# OpenVintage Native Boot Application
+INF  OpenVintagePkg/OpenVintageBootApp/OpenVintageBootApp.inf
+
+################################################################################
+# Rules for generating Firmware File System (FFS) files
+################################################################################
+[Rule.Common.DXE_DRIVER]
+  FILE DRIVER = $(NAMED_GUID) {
+    DXE_DEPEX    DXE_DEPEX Optional      $(INF_OUTPUT)/$(MODULE_NAME).depex
+    PE32         PE32                    $(INF_OUTPUT)/$(MODULE_NAME).efi
+    UI           STRING="$(MODULE_NAME)" Optional
+    VERSION      STRING="$(INF_VERSION)" Optional BUILD_NUM=$(BUILD_NUMBER)
+  }
+
+[Rule.Common.UEFI_APPLICATION]
+  FILE APPLICATION = $(NAMED_GUID) {
+    PE32         PE32                    $(INF_OUTPUT)/$(MODULE_NAME).efi
+    UI           STRING="$(MODULE_NAME)" Optional
+    VERSION      STRING="$(INF_VERSION)" Optional BUILD_NUM=$(BUILD_NUMBER)
+  }

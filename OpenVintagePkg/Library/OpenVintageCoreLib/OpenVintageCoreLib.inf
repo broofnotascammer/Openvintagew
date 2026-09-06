@@ -1,0 +1,37 @@
+## @file
+#  OpenVintage Core Platform Library Instance
+#
+#  Copyright (c) 2026 OpenVintage Project. All rights reserved.
+#  SPDX-License-Identifier: BSD-2-Clause-Patent
+##
+
+[Defines]
+  INF_VERSION                    = 0x00010005
+  BASE_NAME                      = OpenVintageCoreLib
+  FILE_GUID                      = E1A837C9-3019-4C59-A971-8840A1078B3F
+  MODULE_TYPE                    = BASE
+  VERSION_STRING                 = 1.0
+  LIBRARY_CLASS                  = OpenVintageCoreLib
+
+[Sources]
+  OpenVintageCoreLib.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+  MdeModulePkg/MdeModulePkg.dec
+  OpenVintagePkg/OpenVintagePkg.dec
+
+[LibraryClasses]
+  BaseLib
+  BaseMemoryLib
+  MemoryAllocationLib
+  PrintLib
+  UefiLib
+  UefiBootServicesTableLib
+  UefiRuntimeServicesTableLib
+  OpenVintageLogLib
+
+[Protocols]
+  gEfiPciIoProtocolGuid
+  gEfiBlockIoProtocolGuid
+  gEfiGraphicsOutputProtocolGuid

@@ -1,0 +1,42 @@
+## @file
+#  OpenVintage Package Declaration File (.DEC)
+#
+#  OpenVintage is a modular compatibility and performance platform
+#  targeting legacy Intel x86_64 architectures (2006-2015).
+#
+#  Copyright (c) 2026 OpenVintage Project. All rights reserved.
+#  SPDX-License-Identifier: BSD-2-Clause-Patent
+##
+
+[Defines]
+  DEC_SPECIFICATION              = 0x00010005
+  PACKAGE_NAME                   = OpenVintagePkg
+  PACKAGE_UNI_FILE               = OpenVintagePkg.uni
+  PACKAGE_GUID                   = 5B3E2C34-F851-4017-91F9-03B9B478D1F0
+  PACKAGE_VERSION                = 0.20
+
+[Includes]
+  Include
+
+[LibraryClasses]
+  ## @libraryclass  Provides OpenVintage Core services and runtime initialization
+  OpenVintageCoreLib|Include/Library/OpenVintageCoreLib.h
+
+  ## @libraryclass  Provides OpenVintage Diagnostic and Serial Logging services
+  OpenVintageLogLib|Include/Library/OpenVintageLogLib.h
+
+[Guids]
+  gOpenVintagePkgTokenSpaceGuid  = { 0x3F58A74E, 0x2914, 0x40DF, { 0x88, 0x31, 0x81, 0x17, 0x72, 0x6F, 0x9C, 0x32 } }
+
+[Protocols]
+  ## OpenVintage Platform Identification Protocol
+  gOpenVintagePlatformProtocolGuid = { 0x8A923891, 0x5981, 0x47E1, { 0x93, 0x8B, 0x22, 0x9A, 0x73, 0xA1, 0x6E, 0x50 } }
+
+  ## OpenVintage Hardware Abstraction Layer Protocol
+  gOpenVintageHalProtocolGuid      = { 0x1F744E82, 0x7462, 0x4F49, { 0x82, 0x90, 0x3D, 0x49, 0xA7, 0x01, 0x83, 0x21 } }
+
+[PcdsFixedAtBuild]
+  gOpenVintagePkgTokenSpaceGuid.PcdOpenVintageBannerEnable|TRUE|BOOLEAN|0x00010001
+  gOpenVintagePkgTokenSpaceGuid.PcdOpenVintageVersionString|L"OpenVintage Firmware & Runtime v0.2.0 (X64)"|VOID*|0x00010002
+  gOpenVintagePkgTokenSpaceGuid.PcdOpenVintageTargetArchitecture|L"Legacy Intel Core / Xeon (2006-2015)"|VOID*|0x00010003
+  gOpenVintagePkgTokenSpaceGuid.PcdOpenVintageLogLevel|0x00000003|UINT32|0x00010004
