@@ -217,7 +217,72 @@ The boot application provides early hardware telemetry and platform verification
 
 ---
 
-## 5. QEMU Virtualized Test Architecture
+## 5. OVIR-GPU Graphics Intermediate Representation
+
+```
+ Application Graphics API (Metal / Vulkan / OpenGL / DirectX)
+                             │
+                             ▼
+                 [ Graphics API Adapters ]
+            (MetalAdapter, VulkanAdapter, etc.)
+                             │
+                             ▼
+                   ┌───────────────────┐
+                   │     OVIR-GPU      │
+                   │ Intermediate Rep  │
+                   └─────────┬─────────┘
+                             │
+            ┌────────────────┼────────────────┐
+            ▼                ▼                ▼
+     Command Stream     Shader Engine    Pipeline / PSO
+      & RenderPass       & Bytecode       State Tracking
+     Validation Rules       Cache            & Cache
+            │                │                │
+            └────────────────┼────────────────┘
+                             │
+                             ▼
+                   [ Graphics Resolver ]
+           (Evaluates Silicon Capability Matrix)
+                             │
+         ┌───────────┬───────┴───────┬───────────┐
+         ▼           ▼               ▼           ▼
+      Native    Translated      Simplified    Fallback
+     Silicon     Execution      Execution    SIMD / CPU
+```
+
+### 5.1 The Hub-and-Spoke IR Model
+Direct translators between every pair of graphics APIs result in an unmaintainable $O(M \times N)$ combination matrix. OpenVintage enforces a clean Hub-and-Spoke model:
+- **API Adapters (Spokes)**: Ingest commands, shaders, and state from application-level APIs (Metal, Vulkan, OpenGL, DirectX) into OVIR-GPU structs.
+- **OVIR-GPU Hub**: Canonical, state-validated, hardware-agnostic IR representing commands, buffers, textures, samplers, pipelines, render passes, and synchronization barriers.
+- **Resolver Bridge**: Evaluates the IR command stream against detected GPU capabilities (`OVIR_GPU_CAPABILITIES`) to select execution strategies without coupling APIs to target hardware.
+
+### 5.2 Command Stream & Render Pass Architecture
+- **Command Recording**: Commands (`Draw`, `DrawIndexed`, `Dispatch`, `BindPipeline`, `SetViewport`, `SetScissor`, `SetPushConstants`, `PipelineBarrier`) are recorded into structured IR lists.
+- **Validation**: Strict validation rules ensure:
+  - Render pass balance: `EndRenderPass` without matching `BeginRenderPass` is rejected.
+  - Resource binding: Pipelines and vertex/index buffers must be bound before draw calls.
+  - Handle validity: Zero or invalid handles (`OVIR_INVALID_HANDLE`) fail gracefully.
+
+### 5.3 Modular Shader Subsystem (`OvirShaderLib`)
+- **SPIR-V Ingestion**: Direct ingestion of SPIR-V bytecode modules with reflection extraction (descriptor sets, bindings, stage masks).
+- **Composite Hash Cache**: FNV-1a 64-bit hashing guarantees duplicate shaders are recognized instantly, returning cached shader instances with zero redundant memory allocations.
+- **Language Support**: Abstract representation for SPIR-V, MSL, GLSL, HLSL, and custom OVIR bytecode.
+
+### 5.4 Pipeline State Object Subsystem (`OvirPipelineLib`)
+- **Deterministic State Hashing**: Hashes blend states, rasterizer configurations, depth-stencil setups, and shader handles.
+- **Fast PSO Cache**: Pointer-identity resolution for matching pipeline descriptors, eliminating redundant GPU state compilation.
+
+### 5.5 Resource System & VRAM Pool (`OvirResourceLib`)
+- **Tracked Allocations**: Buffers and textures (1D, 2D, 3D, Cube) allocated with precise usage flags (`OVIR_BUFFER_USAGE_*`, `OVIR_TEXTURE_USAGE_*`).
+- **Dynamic VRAM Budgeting**: Centralized tracking pool maintaining total, committed, and peak video memory usage, preventing silent out-of-memory driver crashes.
+
+### 5.6 Telemetry & Timing (`OvirPerfLib`)
+- **Hardware TSC Cycle Counters**: Read direct CPU timestamp counters (`AsmReadTsc`) to measure compilation latency and dispatch times with zero operating system overhead.
+- **Cache Efficiency Metrics**: Continuous monitoring of hit/miss ratios for shaders and pipelines.
+
+---
+
+## 6. QEMU Virtualized Test Architecture
 
 Testing is executed in an automated, headless virtual machine environment:
 - **Host Test Harness**: `scripts/test_qemu.sh`
@@ -225,4 +290,7 @@ Testing is executed in an automated, headless virtual machine environment:
 - **Virtual Disk**: 64MB FAT32 ESP disk containing `EFI/BOOT/BOOTX64.EFI` and `startup.nsh`
 - **CPU Profiles Tested**: Intel Haswell, QEMU Virtual CPU
 - **Telemetry Channel**: ISA debugcon / Serial port redirection to file
-- **Verification Rule**: String validation against `OpenVintage Boot App Phase 1/2 Check: PASS` and `EFI_SUCCESS`.
+- **Verification Suites**:
+  1. `OpenVintageBootApp.efi`: Bootloader initialization, hardware discovery, and module state verification.
+  2. `OvSelfTestApp.efi`: 16 comprehensive architectural tests covering core subsystems and OVIR-GPU components.
+- **Pass Rule**: Both apps return `EFI_SUCCESS` and output `ALL OPENVINTAGE ARCHITECTURAL TESTS PASSED!`.

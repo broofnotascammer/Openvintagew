@@ -1,0 +1,31 @@
+## @file
+#  OpenVintage Graphics Intermediate Representation (OVIR-GPU) Core INF.
+#  Phase 3 Modular Graphics Framework.
+#
+#  Copyright (c) 2026 OpenVintage Project. All rights reserved.
+#  SPDX-License-Identifier: BSD-2-Clause-Patent
+##
+
+[Defines]
+  INF_VERSION                    = 0x00010005
+  BASE_NAME                      = OvirGpuLib
+  FILE_GUID                      = 8F2A1439-0B72-4B21-9E83-125039A28471
+  MODULE_TYPE                    = BASE
+  VERSION_STRING                 = 0.3.0
+  LIBRARY_CLASS                  = OvirGpuLib
+
+[Sources]
+  OvirGpuCore.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+  OpenVintagePkg/OpenVintagePkg.dec
+
+[LibraryClasses]
+  BaseLib
+  BaseMemoryLib
+  PrintLib
+  OvLoggerLib
+  OvMemoryLib
+  OvHardwareLib
+  OvirPerfLib

@@ -6,6 +6,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 WORKSPACE_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 EDK2_PATH="${EDK2_PATH:-/edk2}"
+TOOLCHAIN="${TOOLCHAIN:-GCC}"
 
 echo "================================================================"
 echo "  OpenVintage EDK II Firmware & Bootloader Build Pipeline"
@@ -13,7 +14,7 @@ echo "================================================================"
 echo "Workspace Root : ${WORKSPACE_ROOT}"
 echo "EDK II Root    : ${EDK2_PATH}"
 echo "Architecture   : X64"
-echo "Toolchain      : GCC5"
+echo "Toolchain      : ${TOOLCHAIN}"
 echo "Target         : DEBUG"
 echo "================================================================"
 
@@ -35,31 +36,31 @@ source edksetup.sh BaseTools
 set -u
 
 echo "[+] Initiating EDK II Platform Build for OpenVintagePkg..."
-build -p OpenVintagePkg/OpenVintagePkg.dsc -a X64 -t GCC5 -b DEBUG
+build -p OpenVintagePkg/OpenVintagePkg.dsc -a X64 -t "${TOOLCHAIN}" -b DEBUG
 
 echo "[+] Syncing compiled artifacts into repository..."
 mkdir -p "${WORKSPACE_ROOT}/OpenVintagePkg/Firmware"
 mkdir -p "${WORKSPACE_ROOT}/bin"
 
-cp -f "${EDK2_PATH}/Build/OpenVintageX64/DEBUG_GCC5/X64/OpenVintageBootApp.efi" \
+cp -f "${EDK2_PATH}/Build/OpenVintageX64/DEBUG_${TOOLCHAIN}/X64/OpenVintageBootApp.efi" \
       "${WORKSPACE_ROOT}/OpenVintagePkg/OpenVintageBootApp/OpenVintageBootApp.efi"
-cp -f "${EDK2_PATH}/Build/OpenVintageX64/DEBUG_GCC5/X64/OpenVintageBootApp.efi" \
+cp -f "${EDK2_PATH}/Build/OpenVintageX64/DEBUG_${TOOLCHAIN}/X64/OpenVintageBootApp.efi" \
       "${WORKSPACE_ROOT}/bin/OpenVintageBootApp.efi"
 
-cp -f "${EDK2_PATH}/Build/OpenVintageX64/DEBUG_GCC5/X64/OvSelfTestApp.efi" \
+cp -f "${EDK2_PATH}/Build/OpenVintageX64/DEBUG_${TOOLCHAIN}/X64/OvSelfTestApp.efi" \
       "${WORKSPACE_ROOT}/OpenVintagePkg/Tests/OvSelfTestApp.efi"
-cp -f "${EDK2_PATH}/Build/OpenVintageX64/DEBUG_GCC5/X64/OvSelfTestApp.efi" \
+cp -f "${EDK2_PATH}/Build/OpenVintageX64/DEBUG_${TOOLCHAIN}/X64/OvSelfTestApp.efi" \
       "${WORKSPACE_ROOT}/bin/OvSelfTestApp.efi"
 
-cp -f "${EDK2_PATH}/Build/OpenVintageX64/DEBUG_GCC5/X64/OpenVintageHalDxe.efi" \
+cp -f "${EDK2_PATH}/Build/OpenVintageX64/DEBUG_${TOOLCHAIN}/X64/OpenVintageHalDxe.efi" \
       "${WORKSPACE_ROOT}/OpenVintagePkg/Drivers/OpenVintageHalDxe/OpenVintageHalDxe.efi"
 
-cp -f "${EDK2_PATH}/Build/OpenVintageX64/DEBUG_GCC5/FV/OPENVINTAGE.fd" \
+cp -f "${EDK2_PATH}/Build/OpenVintageX64/DEBUG_${TOOLCHAIN}/FV/OPENVINTAGE.fd" \
       "${WORKSPACE_ROOT}/OpenVintagePkg/Firmware/OPENVINTAGE.fd"
-cp -f "${EDK2_PATH}/Build/OpenVintageX64/DEBUG_GCC5/FV/OPENVINTAGE.fd" \
+cp -f "${EDK2_PATH}/Build/OpenVintageX64/DEBUG_${TOOLCHAIN}/FV/OPENVINTAGE.fd" \
       "${WORKSPACE_ROOT}/bin/OPENVINTAGE.fd"
 
-cp -f "${EDK2_PATH}/Build/OpenVintageX64/DEBUG_GCC5/FV/OPENVINTAGE_DXEFV.Fv" \
+cp -f "${EDK2_PATH}/Build/OpenVintageX64/DEBUG_${TOOLCHAIN}/FV/OPENVINTAGE_DXEFV.Fv" \
       "${WORKSPACE_ROOT}/OpenVintagePkg/Firmware/OPENVINTAGE_DXEFV.Fv"
 
 echo "================================================================"

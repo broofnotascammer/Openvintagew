@@ -1,0 +1,33 @@
+## @file
+#  OpenVintage Graphics Workload Resolver Bridge INF.
+#  Phase 3 OVIR-GPU to Hardware Backend Resolution Engine.
+#
+#  Copyright (c) 2026 OpenVintage Project. All rights reserved.
+#  SPDX-License-Identifier: BSD-2-Clause-Patent
+##
+
+[Defines]
+  INF_VERSION                    = 0x00010005
+  BASE_NAME                      = OvirResolverBridgeLib
+  FILE_GUID                      = E1924538-40AF-4C2E-83B9-57493A953110
+  MODULE_TYPE                    = BASE
+  VERSION_STRING                 = 0.3.0
+  LIBRARY_CLASS                  = OvirResolverLib
+
+[Sources]
+  OvirResolverBridge.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+  OpenVintagePkg/OpenVintagePkg.dec
+
+[LibraryClasses]
+  BaseLib
+  BaseMemoryLib
+  PrintLib
+  OvLoggerLib
+  OvResolverLib
+  OvGpuCapabilityLib
+  OvirGpuLib
+  OvirPipelineLib
+  OvirShaderLib

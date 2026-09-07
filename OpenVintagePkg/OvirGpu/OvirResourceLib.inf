@@ -1,0 +1,31 @@
+## @file
+#  OpenVintage Resource System Library INF.
+#  Phase 3 Modular Resource Abstractions (Buffers, Textures, Samplers, GPU Memory).
+#
+#  Copyright (c) 2026 OpenVintage Project. All rights reserved.
+#  SPDX-License-Identifier: BSD-2-Clause-Patent
+##
+
+[Defines]
+  INF_VERSION                    = 0x00010005
+  BASE_NAME                      = OvirResourceLib
+  FILE_GUID                      = D469C318-7711-47BE-A66E-0C178B81B725
+  MODULE_TYPE                    = BASE
+  VERSION_STRING                 = 0.3.0
+  LIBRARY_CLASS                  = OvirResourceLib
+
+[Sources]
+  OvirResource.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+  OpenVintagePkg/OpenVintagePkg.dec
+
+[LibraryClasses]
+  BaseLib
+  BaseMemoryLib
+  PrintLib
+  OvLoggerLib
+  OvMemoryLib
+  OvirGpuLib
+  OvirPerfLib

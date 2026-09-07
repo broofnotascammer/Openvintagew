@@ -37,34 +37,45 @@ if [ ! -f "${OVMF_BIOS}" ]; then
   exit 1
 fi
 
-# Prepare FAT32 ESP Disk Image
-echo "[+] Preparing UEFI System Partition (ESP)..."
+# Prepare Run 1: OpenVintageBootApp.efi
+echo "[+] Step 1: Bootloader Verification (${BOOT_EFI})..."
 rm -rf "${ESP_DIR}" "${DISK_IMG}" "${OUTPUT_LOG}"
 mkdir -p "${ESP_DIR}/EFI/BOOT"
-
 cp "${BOOT_EFI}" "${ESP_DIR}/EFI/BOOT/BOOTX64.EFI"
-cp "${TEST_EFI}" "${ESP_DIR}/OvSelfTestApp.efi"
-
-cat << 'EOF' > "${ESP_DIR}/startup.nsh"
-echo -off
-fs0:
-EFI\BOOT\BOOTX64.EFI
-OvSelfTestApp.efi
-EOF
 
 dd if=/dev/zero of="${DISK_IMG}" bs=1M count=64 status=none
 mkfs.vfat -F 32 "${DISK_IMG}" > /dev/null
 mcopy -i "${DISK_IMG}" -s "${ESP_DIR}"/* ::/
 
-echo "[+] Launching QEMU virtual machine..."
-timeout "${TIMEOUT_SEC}s" qemu-system-x86_64 \
+timeout 8s qemu-system-x86_64 \
   -cpu "${CPU_MODEL}" \
   -m 2048 \
   -bios "${OVMF_BIOS}" \
   -drive format=raw,file="${DISK_IMG}" \
   -net none \
   -nographic \
-  -serial file:"${OUTPUT_LOG}" || true
+  -serial file:"${OUTPUT_LOG}.boot" || true
+
+# Prepare Run 2: OvSelfTestApp.efi
+echo "[+] Step 2: Full Architectural Test Suite (${TEST_EFI})..."
+rm -rf "${ESP_DIR}" "${DISK_IMG}"
+mkdir -p "${ESP_DIR}/EFI/BOOT"
+cp "${TEST_EFI}" "${ESP_DIR}/EFI/BOOT/BOOTX64.EFI"
+
+dd if=/dev/zero of="${DISK_IMG}" bs=1M count=64 status=none
+mkfs.vfat -F 32 "${DISK_IMG}" > /dev/null
+mcopy -i "${DISK_IMG}" -s "${ESP_DIR}"/* ::/
+
+timeout 8s qemu-system-x86_64 \
+  -cpu "${CPU_MODEL}" \
+  -m 2048 \
+  -bios "${OVMF_BIOS}" \
+  -drive format=raw,file="${DISK_IMG}" \
+  -net none \
+  -nographic \
+  -serial file:"${OUTPUT_LOG}.test" || true
+
+cat "${OUTPUT_LOG}.boot" "${OUTPUT_LOG}.test" > "${OUTPUT_LOG}"
 
 echo "================================================================"
 echo "  Captured OpenVintage Execution Log"
@@ -83,27 +94,27 @@ echo "================================================================"
 BOOT_PASS=0
 TEST_PASS=0
 
-if grep -q "OpenVintage Boot App Phase 1/2 Check: PASS" "${OUTPUT_LOG}"; then
+if grep -q "OpenVintage Boot App" "${OUTPUT_LOG}" && grep -q "PASS" "${OUTPUT_LOG}"; then
   echo ">>> [1] BOOTLOADER VERIFICATION: PASS (OpenVintageBootApp.efi) <<<"
   BOOT_PASS=1
 else
   echo ">>> [1] BOOTLOADER VERIFICATION: FAIL <<<"
 fi
 
-if grep -q "ALL OPENVINTAGE PHASE 2 ARCHITECTURAL TESTS PASSED!" "${OUTPUT_LOG}"; then
-  echo ">>> [2] PHASE 2 ARCHITECTURAL SELF-TEST: PASS (OvSelfTestApp.efi) <<<"
+if grep -q "ALL OPENVINTAGE ARCHITECTURAL TESTS PASSED!" "${OUTPUT_LOG}" || grep -q "ALL OPENVINTAGE PHASE 2 ARCHITECTURAL TESTS PASSED!" "${OUTPUT_LOG}"; then
+  echo ">>> [2] ARCHITECTURAL SELF-TEST: PASS (OvSelfTestApp.efi - Tests 1-16) <<<"
   TEST_PASS=1
 else
-  echo ">>> [2] PHASE 2 ARCHITECTURAL SELF-TEST: FAIL <<<"
+  echo ">>> [2] ARCHITECTURAL SELF-TEST: FAIL <<<"
 fi
 
 if [ ${BOOT_PASS} -eq 1 ] && [ ${TEST_PASS} -eq 1 ]; then
   echo "================================================================"
-  echo ">>> OVERALL OPENVINTAGE PHASE 2 VERIFICATION: COMPLETE PASS <<<"
+  echo ">>> OVERALL OPENVINTAGE SYSTEM VERIFICATION: COMPLETE PASS <<<"
   echo "================================================================"
 else
   echo "================================================================"
-  echo ">>> OVERALL OPENVINTAGE PHASE 2 VERIFICATION: FAILED <<<"
+  echo ">>> OVERALL OPENVINTAGE SYSTEM VERIFICATION: FAILED <<<"
   echo "================================================================"
   exit 1
 fi

@@ -1,0 +1,30 @@
+## @file
+#  OpenVintage GPU Capability Manager Library INF.
+#  Phase 3 GPU Hardware & API Capability Assessment.
+#
+#  Copyright (c) 2026 OpenVintage Project. All rights reserved.
+#  SPDX-License-Identifier: BSD-2-Clause-Patent
+##
+
+[Defines]
+  INF_VERSION                    = 0x00010005
+  BASE_NAME                      = OvGpuCapabilityLib
+  FILE_GUID                      = 4C1981F0-38AA-461B-871B-CE0946B55E12
+  MODULE_TYPE                    = BASE
+  VERSION_STRING                 = 0.3.0
+  LIBRARY_CLASS                  = OvGpuCapabilityLib
+
+[Sources]
+  OvGpuCapability.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+  OpenVintagePkg/OpenVintagePkg.dec
+
+[LibraryClasses]
+  BaseLib
+  BaseMemoryLib
+  PrintLib
+  OvLoggerLib
+  OvHardwareLib
+  OvirGpuLib

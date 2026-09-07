@@ -40,6 +40,7 @@
   PeCoffGetEntryPointLib|MdePkg/Library/BasePeCoffGetEntryPointLib/BasePeCoffGetEntryPointLib.inf
   PeCoffExtraActionLib|MdePkg/Library/BasePeCoffExtraActionLibNull/BasePeCoffExtraActionLibNull.inf
   RegisterFilterLib|MdePkg/Library/RegisterFilterLibNull/RegisterFilterLibNull.inf
+  StackCheckLib|MdePkg/Library/StackCheckLibNull/StackCheckLibNull.inf
 
   # UEFI & DXE
   UefiLib|MdePkg/Library/UefiLib/UefiLib.inf
@@ -64,6 +65,14 @@
   OvResolverLib|OpenVintagePkg/Resolver/OvResolverLib.inf
   OvSchedulerLib|OpenVintagePkg/Scheduler/OvSchedulerLib.inf
   OvCoreLib|OpenVintagePkg/Core/OvCoreLib.inf
+  OvirGpuLib|OpenVintagePkg/OvirGpu/OvirGpuLib.inf
+  OvGpuCapabilityLib|OpenVintagePkg/OvirGpu/OvGpuCapabilityLib.inf
+  OvirAdaptersLib|OpenVintagePkg/OvirGpu/OvirAdaptersLib.inf
+  OvirShaderLib|OpenVintagePkg/OvirGpu/OvirShaderLib.inf
+  OvirPipelineLib|OpenVintagePkg/OvirGpu/OvirPipelineLib.inf
+  OvirResourceLib|OpenVintagePkg/OvirGpu/OvirResourceLib.inf
+  OvirPerfLib|OpenVintagePkg/OvirGpu/OvirPerfLib.inf
+  OvirResolverLib|OpenVintagePkg/OvirGpu/OvirResolverBridgeLib.inf
 
 [LibraryClasses.common.UEFI_APPLICATION]
   MemoryAllocationLib|MdePkg/Library/UefiMemoryAllocationLib/UefiMemoryAllocationLib.inf
@@ -95,6 +104,14 @@
   OpenVintagePkg/Resolver/OvResolverLib.inf
   OpenVintagePkg/Scheduler/OvSchedulerLib.inf
   OpenVintagePkg/Core/OvCoreLib.inf
+  OpenVintagePkg/OvirGpu/OvirGpuLib.inf
+  OpenVintagePkg/OvirGpu/OvGpuCapabilityLib.inf
+  OpenVintagePkg/OvirGpu/OvirAdaptersLib.inf
+  OpenVintagePkg/OvirGpu/OvirShaderLib.inf
+  OpenVintagePkg/OvirGpu/OvirPipelineLib.inf
+  OpenVintagePkg/OvirGpu/OvirResourceLib.inf
+  OpenVintagePkg/OvirGpu/OvirPerfLib.inf
+  OpenVintagePkg/OvirGpu/OvirResolverBridgeLib.inf
 
   # OpenVintage DXE Drivers
   OpenVintagePkg/Drivers/OpenVintageHalDxe/OpenVintageHalDxe.inf

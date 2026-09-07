@@ -1,0 +1,28 @@
+## @file
+#  OpenVintage Performance Telemetry Library INF.
+#  Phase 3 Modular Telemetry, Timing & Resource Profiling.
+#
+#  Copyright (c) 2026 OpenVintage Project. All rights reserved.
+#  SPDX-License-Identifier: BSD-2-Clause-Patent
+##
+
+[Defines]
+  INF_VERSION                    = 0x00010005
+  BASE_NAME                      = OvirPerfLib
+  FILE_GUID                      = 192842A1-0C44-48FE-996E-A870B1824F31
+  MODULE_TYPE                    = BASE
+  VERSION_STRING                 = 0.3.0
+  LIBRARY_CLASS                  = OvirPerfLib
+
+[Sources]
+  OvirPerf.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+  OpenVintagePkg/OpenVintagePkg.dec
+
+[LibraryClasses]
+  BaseLib
+  BaseMemoryLib
+  PrintLib
+  OvLoggerLib

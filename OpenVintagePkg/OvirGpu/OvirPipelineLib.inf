@@ -1,0 +1,32 @@
+## @file
+#  OpenVintage Pipeline System Library INF.
+#  Phase 3 Modular Pipeline Subsystem.
+#
+#  Copyright (c) 2026 OpenVintage Project. All rights reserved.
+#  SPDX-License-Identifier: BSD-2-Clause-Patent
+##
+
+[Defines]
+  INF_VERSION                    = 0x00010005
+  BASE_NAME                      = OvirPipelineLib
+  FILE_GUID                      = 58E5E729-19E4-429C-A81E-B4FE8CE7DA63
+  MODULE_TYPE                    = BASE
+  VERSION_STRING                 = 0.3.0
+  LIBRARY_CLASS                  = OvirPipelineLib
+
+[Sources]
+  OvirPipeline.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+  OpenVintagePkg/OpenVintagePkg.dec
+
+[LibraryClasses]
+  BaseLib
+  BaseMemoryLib
+  PrintLib
+  OvLoggerLib
+  OvMemoryLib
+  OvirGpuLib
+  OvirShaderLib
+  OvirPerfLib

@@ -49,6 +49,30 @@
   ## @libraryclass  Unified Core runtime coordinator
   OvCoreLib|Include/Library/OvCoreLib.h
 
+  ## @libraryclass  Graphics Intermediate Representation (OVIR-GPU)
+  OvirGpuLib|Include/Library/OvirGpuLib.h
+
+  ## @libraryclass  GPU Capability Manager and Feature Detection
+  OvGpuCapabilityLib|Include/Library/OvGpuCapabilityLib.h
+
+  ## @libraryclass  Graphics API Adapters (Vulkan, OpenGL, Metal, DirectX)
+  OvirAdaptersLib|Include/Library/OvirAdaptersLib.h
+
+  ## @libraryclass  Shader Representation, Ingestion, Validation & Cache
+  OvirShaderLib|Include/Library/OvirShaderLib.h
+
+  ## @libraryclass  Pipeline Abstraction, State Management & Cache
+  OvirPipelineLib|Include/Library/OvirPipelineLib.h
+
+  ## @libraryclass  Resource System (Buffers, Textures, Samplers, GPU Memory)
+  OvirResourceLib|Include/Library/OvirResourceLib.h
+
+  ## @libraryclass  Performance Measurement & Telemetry Infrastructure
+  OvirPerfLib|Include/Library/OvirPerfLib.h
+
+  ## @libraryclass  Graphics Workload Resolver Bridge
+  OvirResolverLib|Include/Library/OvirResolverLib.h
+
 [Guids]
   gOpenVintagePkgTokenSpaceGuid  = { 0x3F58A74E, 0x2914, 0x40DF, { 0x88, 0x31, 0x81, 0x17, 0x72, 0x6F, 0x9C, 0x32 } }
 

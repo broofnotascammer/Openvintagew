@@ -22,6 +22,10 @@
 #define OV_MEM_TAG_SCHD     0x44484353  // 'SCHD'
 #define OV_MEM_TAG_TEST     0x54534554  // 'TEST'
 #define OV_MEM_TAG_BUFF     0x46465542  // 'BUFF'
+#define OV_MEM_TAG_OVIR     0x5249564F  // 'OVIR'
+#define OV_MEM_TAG_SHDR     0x52444853  // 'SHDR'
+#define OV_MEM_TAG_PIPE     0x45504950  // 'PIPE'
+#define OV_MEM_TAG_TEXR     0x52584554  // 'TEXR'
 
 //
 // Memory Allocation Statistics

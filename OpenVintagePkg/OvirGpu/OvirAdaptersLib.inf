@@ -1,0 +1,31 @@
+## @file
+#  OpenVintage Graphics API Adapters Library INF.
+#  Phase 3 Frontend API Translation Bridges (Vulkan, OpenGL, Metal, DirectX).
+#
+#  Copyright (c) 2026 OpenVintage Project. All rights reserved.
+#  SPDX-License-Identifier: BSD-2-Clause-Patent
+##
+
+[Defines]
+  INF_VERSION                    = 0x00010005
+  BASE_NAME                      = OvirAdaptersLib
+  FILE_GUID                      = A729011B-EF21-460B-9752-0B289658E29A
+  MODULE_TYPE                    = BASE
+  VERSION_STRING                 = 0.3.0
+  LIBRARY_CLASS                  = OvirAdaptersLib
+
+[Sources]
+  OvirAdapters.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+  OpenVintagePkg/OpenVintagePkg.dec
+
+[LibraryClasses]
+  BaseLib
+  BaseMemoryLib
+  PrintLib
+  OvLoggerLib
+  OvirGpuLib
+  OvGpuCapabilityLib
+  OvirPerfLib

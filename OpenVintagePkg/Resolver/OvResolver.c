@@ -38,6 +38,8 @@ OvResolverDecisionToString (
       return L"NATIVE";
     case OvResolutionTranslated:
       return L"TRANSLATED";
+    case OvResolutionSimplified:
+      return L"SIMPLIFIED";
     case OvResolutionFallback:
       return L"FALLBACK";
     case OvResolutionUnsupported:

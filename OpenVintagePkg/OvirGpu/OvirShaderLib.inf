@@ -1,0 +1,31 @@
+## @file
+#  OpenVintage Shader System Library INF.
+#  Phase 3 Modular Shader Subsystem.
+#
+#  Copyright (c) 2026 OpenVintage Project. All rights reserved.
+#  SPDX-License-Identifier: BSD-2-Clause-Patent
+##
+
+[Defines]
+  INF_VERSION                    = 0x00010005
+  BASE_NAME                      = OvirShaderLib
+  FILE_GUID                      = 61D94A1F-2BE5-4089-B089-98A620CF124C
+  MODULE_TYPE                    = BASE
+  VERSION_STRING                 = 0.3.0
+  LIBRARY_CLASS                  = OvirShaderLib
+
+[Sources]
+  OvirShader.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+  OpenVintagePkg/OpenVintagePkg.dec
+
+[LibraryClasses]
+  BaseLib
+  BaseMemoryLib
+  PrintLib
+  OvLoggerLib
+  OvMemoryLib
+  OvirGpuLib
+  OvirPerfLib

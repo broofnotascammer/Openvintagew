@@ -18,8 +18,9 @@
 typedef enum {
   OvResolutionNative = 1,       // Target silicon natively satisfies workload requirements
   OvResolutionTranslated = 2,   // Workload transformed through OVIR translation layer
-  OvResolutionFallback = 3,     // Workload executed on CPU software emulation path
-  OvResolutionUnsupported = 4   // Workload cannot be executed by available hardware
+  OvResolutionSimplified = 3,   // Workload clamped/simplified for compatibility/VRAM
+  OvResolutionFallback = 4,     // Workload executed on CPU software emulation path
+  OvResolutionUnsupported = 5   // Workload cannot be executed by available hardware
 } OV_RESOLUTION_DECISION;
 
 //
