@@ -45,3 +45,10 @@
   OvirResourceLib
   OvirPerfLib
   OvirResolverLib
+  OvirCpuLib
+  OvirCpuDecoderLib
+  OvirCpuOptimizerLib
+  OvirCpuBackendLib
+  OvirCpuCacheLib
+  OvirCpuJitLib
+  OvirCpuSchedulerLib

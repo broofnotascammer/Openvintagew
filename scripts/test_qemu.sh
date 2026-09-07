@@ -102,7 +102,7 @@ else
 fi
 
 if grep -q "ALL OPENVINTAGE ARCHITECTURAL TESTS PASSED!" "${OUTPUT_LOG}" || grep -q "ALL OPENVINTAGE PHASE 2 ARCHITECTURAL TESTS PASSED!" "${OUTPUT_LOG}"; then
-  echo ">>> [2] ARCHITECTURAL SELF-TEST: PASS (OvSelfTestApp.efi - Tests 1-16) <<<"
+  echo ">>> [2] ARCHITECTURAL SELF-TEST: PASS (OvSelfTestApp.efi - Tests 1-24) <<<"
   TEST_PASS=1
 else
   echo ">>> [2] ARCHITECTURAL SELF-TEST: FAIL <<<"

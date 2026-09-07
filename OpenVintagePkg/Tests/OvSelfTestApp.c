@@ -22,6 +22,13 @@
 #include <Library/OvirResourceLib.h>
 #include <Library/OvirPerfLib.h>
 #include <Library/OvirResolverLib.h>
+#include <Library/OvirCpuLib.h>
+#include <Library/OvirCpuDecoderLib.h>
+#include <Library/OvirCpuOptimizerLib.h>
+#include <Library/OvirCpuBackendLib.h>
+#include <Library/OvirCpuCacheLib.h>
+#include <Library/OvirCpuJitLib.h>
+#include <Library/OvirCpuSchedulerLib.h>
 
 STATIC UINTN  mTestsRun    = 0;
 STATIC UINTN  mTestsPassed = 0;
@@ -631,6 +638,383 @@ UefiMain (
   RecordTestResult (
     L"Performance Telemetry: Hardware TSC Timing, Cache & Frame Metrics",
     (TscProgress && PerfMetricsOk)
+    );
+
+  // =============================================================
+  // PHASE 4: OVIR-CPU ARCHITECTURAL TESTS (TESTS 17 - 24)
+  // =============================================================
+
+  // -------------------------------------------------------------
+  // TEST 17: Instruction Decoding & Multi-Arch Decoders (ARM64 & x86-64)
+  // -------------------------------------------------------------
+  OVIR_CPU_INSTRUCTION DecArmInst;
+  OVIR_CPU_INSTRUCTION DecX64Inst;
+  UINTN                DecBytes;
+  BOOLEAN              ArmDecOk = FALSE;
+  BOOLEAN              X64DecOk = FALSE;
+
+  OvirCpuDecoderInitialize ();
+
+  // ARM64 instruction: ADD X0, X1, X2 (0x8B020020)
+  CONST UINT8 ArmCodeAdd[] = { 0x20, 0x00, 0x02, 0x8B };
+  Status = OvirCpuDecodeInstruction (OvirCpuArchArm64, ArmCodeAdd, sizeof (ArmCodeAdd), 0x1000, &DecArmInst, &DecBytes);
+  if (!EFI_ERROR (Status) && DecBytes == 4 &&
+      DecArmInst.Opcode == OvirOpAdd &&
+      DecArmInst.BitWidth == 64 &&
+      DecArmInst.OperandCount == 3 &&
+      DecArmInst.Operands[0].As.Reg.Index == 0 &&
+      DecArmInst.Operands[1].As.Reg.Index == 1 &&
+      DecArmInst.Operands[2].As.Reg.Index == 2) {
+    ArmDecOk = TRUE;
+  }
+
+  // x86-64 instruction: MOV RAX, 0x1122334455667788ULL (0x48, 0xB8, imm64)
+  CONST UINT8 X64CodeMov[] = {
+    0x48, 0xB8, 0x88, 0x77, 0x66, 0x55, 0x44, 0x33, 0x22, 0x11
+  };
+  Status = OvirCpuDecodeInstruction (OvirCpuArchX64, X64CodeMov, sizeof (X64CodeMov), 0x2000, &DecX64Inst, &DecBytes);
+  if (!EFI_ERROR (Status) && DecBytes == 10 &&
+      DecX64Inst.Opcode == OvirOpMov &&
+      DecX64Inst.BitWidth == 64 &&
+      DecX64Inst.Operands[0].As.Reg.Index == 0 &&
+      DecX64Inst.Operands[1].As.Imm.Value.UintVal == 0x1122334455667788ULL) {
+    X64DecOk = TRUE;
+  }
+
+  RecordTestResult (
+    L"OVIR-CPU: Multi-Architecture Instruction Decoding (ARM64 & x86-64)",
+    (ArmDecOk && X64DecOk)
+    );
+
+  // -------------------------------------------------------------
+  // TEST 18: IR Generation, Basic Blocks & Program Structure Validation
+  // -------------------------------------------------------------
+  OVIR_CPU_PROGRAM     CpuProg;
+  OVIR_CPU_BASIC_BLOCK CpuBlock;
+  OVIR_CPU_INSTRUCTION AddInst;
+  OVIR_CPU_INSTRUCTION RetInst;
+  BOOLEAN              IrBlockValid = FALSE;
+  BOOLEAN              IrProgValid = FALSE;
+
+  OvirCpuInitProgram (&CpuProg, 1, OvirCpuArchArm64, OvirCpuArchX64);
+  OvirCpuInitBlock (&CpuBlock, 1, 0x400000);
+
+  // Inst 1: ADD R0, R1, #100
+  ZeroMem (&AddInst, sizeof (OVIR_CPU_INSTRUCTION));
+  AddInst.Opcode = OvirOpAdd;
+  AddInst.BitWidth = 64;
+  AddInst.Condition = OvirCondAlways;
+  AddInst.OperandCount = 3;
+  AddInst.Operands[0].Kind = OvirOpKindReg;
+  AddInst.Operands[0].As.Reg.Index = 0;
+  AddInst.Operands[0].As.Reg.Class = OvirRegClassInt;
+  AddInst.Operands[0].As.Reg.BitWidth = 64;
+  AddInst.Operands[1].Kind = OvirOpKindReg;
+  AddInst.Operands[1].As.Reg.Index = 1;
+  AddInst.Operands[1].As.Reg.Class = OvirRegClassInt;
+  AddInst.Operands[1].As.Reg.BitWidth = 64;
+  AddInst.Operands[2].Kind = OvirOpKindImm;
+  AddInst.Operands[2].As.Imm.Value.UintVal = 100;
+  AddInst.Operands[2].As.Imm.BitWidth = 64;
+  OvirCpuAppendInstruction (&CpuBlock, &AddInst);
+
+  // Inst 2: RET
+  ZeroMem (&RetInst, sizeof (OVIR_CPU_INSTRUCTION));
+  RetInst.Opcode = OvirOpRet;
+  RetInst.BitWidth = 64;
+  RetInst.Condition = OvirCondAlways;
+  RetInst.OperandCount = 0;
+  OvirCpuAppendInstruction (&CpuBlock, &RetInst);
+
+  Status = OvirCpuValidateBlock (&CpuBlock);
+  IrBlockValid = (!EFI_ERROR (Status) && CpuBlock.InstructionCount == 2 && CpuBlock.IsTerminated);
+
+  Status = OvirCpuAppendBlock (&CpuProg, &CpuBlock);
+  if (!EFI_ERROR (Status)) {
+    Status = OvirCpuValidateProgram (&CpuProg);
+    IrProgValid = (!EFI_ERROR (Status) && CpuProg.TotalInstructionCount == 2);
+  }
+
+  RecordTestResult (
+    L"OVIR-CPU: IR Generation, Basic Blocks & Program Structure Validation",
+    (IrBlockValid && IrProgValid)
+    );
+
+  // -------------------------------------------------------------
+  // TEST 19: Safe Optimizer Passes (Constant Folding, Identity & Dead Code Elimination)
+  // -------------------------------------------------------------
+  OVIR_CPU_BASIC_BLOCK OptBlock;
+  OVIR_OPTIMIZER_STATS OptStats;
+  OVIR_CPU_INSTRUCTION FoldInst;
+  OVIR_CPU_INSTRUCTION RedundantInst;
+  OVIR_CPU_INSTRUCTION TermInst;
+  OVIR_CPU_INSTRUCTION DeadInst;
+  BOOLEAN              OptPassOk = FALSE;
+
+  OvirCpuInitBlock (&OptBlock, 2, 0x500000);
+
+  // Inst 1: ADD R0, #20, #30 -> folds to MOV R0, #50
+  ZeroMem (&FoldInst, sizeof (OVIR_CPU_INSTRUCTION));
+  FoldInst.Opcode = OvirOpAdd;
+  FoldInst.BitWidth = 64;
+  FoldInst.Condition = OvirCondAlways;
+  FoldInst.OperandCount = 3;
+  FoldInst.Operands[0].Kind = OvirOpKindReg;
+  FoldInst.Operands[0].As.Reg.Index = 0;
+  FoldInst.Operands[0].As.Reg.Class = OvirRegClassInt;
+  FoldInst.Operands[0].As.Reg.BitWidth = 64;
+  FoldInst.Operands[1].Kind = OvirOpKindImm;
+  FoldInst.Operands[1].As.Imm.Value.UintVal = 20;
+  FoldInst.Operands[1].As.Imm.BitWidth = 64;
+  FoldInst.Operands[2].Kind = OvirOpKindImm;
+  FoldInst.Operands[2].As.Imm.Value.UintVal = 30;
+  FoldInst.Operands[2].As.Imm.BitWidth = 64;
+  OvirCpuAppendInstruction (&OptBlock, &FoldInst);
+
+  // Inst 2: MOV R1, R1 -> redundant move eliminated
+  ZeroMem (&RedundantInst, sizeof (OVIR_CPU_INSTRUCTION));
+  RedundantInst.Opcode = OvirOpMov;
+  RedundantInst.BitWidth = 64;
+  RedundantInst.Condition = OvirCondAlways;
+  RedundantInst.OperandCount = 2;
+  RedundantInst.Operands[0].Kind = OvirOpKindReg;
+  RedundantInst.Operands[0].As.Reg.Index = 1;
+  RedundantInst.Operands[0].As.Reg.Class = OvirRegClassInt;
+  RedundantInst.Operands[0].As.Reg.BitWidth = 64;
+  RedundantInst.Operands[1].Kind = OvirOpKindReg;
+  RedundantInst.Operands[1].As.Reg.Index = 1;
+  RedundantInst.Operands[1].As.Reg.Class = OvirRegClassInt;
+  RedundantInst.Operands[1].As.Reg.BitWidth = 64;
+  OvirCpuAppendInstruction (&OptBlock, &RedundantInst);
+
+  // Inst 3: RET
+  ZeroMem (&TermInst, sizeof (OVIR_CPU_INSTRUCTION));
+  TermInst.Opcode = OvirOpRet;
+  TermInst.BitWidth = 64;
+  TermInst.Condition = OvirCondAlways;
+  TermInst.OperandCount = 0;
+  OvirCpuAppendInstruction (&OptBlock, &TermInst);
+
+  // Inst 4: ADD R2, R2, #5 -> Dead code after RET!
+  ZeroMem (&DeadInst, sizeof (OVIR_CPU_INSTRUCTION));
+  DeadInst.Opcode = OvirOpAdd;
+  DeadInst.BitWidth = 64;
+  DeadInst.Condition = OvirCondAlways;
+  DeadInst.OperandCount = 3;
+  DeadInst.Operands[0].Kind = OvirOpKindReg;
+  DeadInst.Operands[0].As.Reg.Index = 2;
+  DeadInst.Operands[0].As.Reg.Class = OvirRegClassInt;
+  DeadInst.Operands[0].As.Reg.BitWidth = 64;
+  DeadInst.Operands[1].Kind = OvirOpKindReg;
+  DeadInst.Operands[1].As.Reg.Index = 2;
+  DeadInst.Operands[1].As.Reg.Class = OvirRegClassInt;
+  DeadInst.Operands[1].As.Reg.BitWidth = 64;
+  DeadInst.Operands[2].Kind = OvirOpKindImm;
+  DeadInst.Operands[2].As.Imm.Value.UintVal = 5;
+  DeadInst.Operands[2].As.Imm.BitWidth = 64;
+  OvirCpuAppendInstruction (&OptBlock, &DeadInst);
+
+  Status = OvirCpuOptimizeBlock (&OptBlock, &OptStats);
+  if (!EFI_ERROR (Status) &&
+      OptStats.ConstantFoldsCount == 1 &&
+      OptStats.RedundantMovesEliminated == 1 &&
+      OptStats.DeadInstructionsEliminated == 1 &&
+      OptBlock.InstructionCount == 2 &&
+      OptBlock.Instructions[0].Opcode == OvirOpMov &&
+      OptBlock.Instructions[0].Operands[1].As.Imm.Value.UintVal == 50 &&
+      OptBlock.Instructions[1].Opcode == OvirOpRet) {
+    OptPassOk = TRUE;
+  }
+
+  RecordTestResult (
+    L"OVIR-CPU: Safe Optimizer (Constant Folding, Identity & Dead Code Elimination)",
+    OptPassOk
+    );
+
+  // -------------------------------------------------------------
+  // TEST 20: Target Machine Code Emission (x86-64 & ARM64 Backends)
+  // -------------------------------------------------------------
+  UINT8   EmitBufX64[128];
+  UINT8   EmitBufArm[128];
+  UINTN   BytesX64 = 0;
+  UINTN   BytesArm = 0;
+  BOOLEAN EmitX64Ok = FALSE;
+  BOOLEAN EmitArmOk = FALSE;
+
+  OvirCpuBackendInitialize ();
+
+  // Emit OptBlock to x86-64 (MOV RAX, 50; RET)
+  Status = OvirCpuEmitBlock (OvirCpuArchX64, &OptBlock, EmitBufX64, sizeof (EmitBufX64), &BytesX64);
+  if (!EFI_ERROR (Status) && BytesX64 >= 11 &&
+      EmitBufX64[0] == 0x48 && EmitBufX64[1] == 0xB8 &&
+      EmitBufX64[10] == 0xC3) {
+    EmitX64Ok = TRUE;
+  }
+
+  // Emit OptBlock to ARM64 (MOVZ X0, #50; RET)
+  Status = OvirCpuEmitBlock (OvirCpuArchArm64, &OptBlock, EmitBufArm, sizeof (EmitBufArm), &BytesArm);
+  if (!EFI_ERROR (Status) && BytesArm == 8 &&
+      (EmitBufArm[7] == 0xD6)) {
+    EmitArmOk = TRUE;
+  }
+
+  RecordTestResult (
+    L"OVIR-CPU: Target Machine Code Emission (x86-64 and ARM64 Backends)",
+    (EmitX64Ok && EmitArmOk)
+    );
+
+  // -------------------------------------------------------------
+  // TEST 21: CPU Translation Cache (Hash Verification & Hit/Miss Tracking)
+  // -------------------------------------------------------------
+  OVIR_TRANSLATION_METADATA CacheMeta;
+  CONST UINT8               *FoundCode = NULL;
+  UINTN                     FoundSize = 0;
+  OVIR_CPU_CACHE_STATS      CacheStats;
+  BOOLEAN                   CacheStoreOk = FALSE;
+  BOOLEAN                   CacheHitOk = FALSE;
+  BOOLEAN                   CacheMissOk = FALSE;
+
+  OvirCpuCacheInitialize ();
+
+  CONST UINT8 DummyNative[] = { 0x48, 0x89, 0xC8, 0xC3 }; // MOV RAX, RCX; RET
+  ZeroMem (&CacheMeta, sizeof (OVIR_TRANSLATION_METADATA));
+  CacheMeta.SourceArch = OvirCpuArchArm64;
+  CacheMeta.TargetArch = OvirCpuArchX64;
+  CacheMeta.ModuleId = 0xAA01;
+  CacheMeta.GuestPc = 0x10000;
+  CacheMeta.GuestCodeHash = OvirCpuCacheComputeCodeHash (DummyNative, sizeof (DummyNative));
+  CacheMeta.GuestCodeSize = sizeof (DummyNative);
+  CacheMeta.OpenVintageVersion = OPENVINTAGE_CURRENT_VERSION_PACKED;
+  CacheMeta.TranslatorVersion = OPENVINTAGE_TRANSLATOR_VERSION;
+  CacheMeta.ConfigFlags = 0x1;
+
+  Status = OvirCpuCacheStore (&CacheMeta, DummyNative, sizeof (DummyNative));
+  CacheStoreOk = !EFI_ERROR (Status);
+
+  Status = OvirCpuCacheLookup (&CacheMeta, &FoundCode, &FoundSize);
+  CacheHitOk = (!EFI_ERROR (Status) && FoundCode != NULL && FoundSize == sizeof (DummyNative));
+
+  // Query with different PC -> must miss
+  CacheMeta.GuestPc = 0x20000;
+  Status = OvirCpuCacheLookup (&CacheMeta, &FoundCode, &FoundSize);
+  CacheMissOk = (Status == EFI_NOT_FOUND);
+
+  OvirCpuCacheGetStats (&CacheStats);
+  BOOLEAN CacheStatsOk = (CacheStats.HitsCount >= 1 && CacheStats.MissesCount >= 1);
+
+  RecordTestResult (
+    L"OVIR-CPU: Translation Cache (Hash Verification, Hit/Miss Tracking)",
+    (CacheStoreOk && CacheHitOk && CacheMissOk && CacheStatsOk)
+    );
+
+  // -------------------------------------------------------------
+  // TEST 22: Cache Invalidation (Version & Configuration Safeguards)
+  // -------------------------------------------------------------
+  UINTN   InvalidatedCount;
+  BOOLEAN InvalCheckOk = FALSE;
+
+  // Invalidate when translator version is mismatched
+  InvalidatedCount = OvirCpuCacheInvalidateIncompatible (
+    OPENVINTAGE_CURRENT_VERSION_PACKED,
+    OPENVINTAGE_TRANSLATOR_VERSION + 1,
+    0x1
+    );
+
+  if (InvalidatedCount >= 1) {
+    CacheMeta.GuestPc = 0x10000;
+    Status = OvirCpuCacheLookup (&CacheMeta, &FoundCode, &FoundSize);
+    if (Status == EFI_NOT_FOUND) {
+      InvalCheckOk = TRUE;
+    }
+  }
+
+  RecordTestResult (
+    L"OVIR-CPU: Cache Invalidation (Version, Translator & Configuration Safeguards)",
+    InvalCheckOk
+    );
+
+  // -------------------------------------------------------------
+  // TEST 23: Dynamic JIT Pipeline & Native Execution Correctness
+  // -------------------------------------------------------------
+  OVIR_JIT_BLOCK JitBlock;
+  OVIR_JIT_STATS JitStats;
+  UINT64         JitResult = 0;
+  BOOLEAN        JitCompileOk = FALSE;
+  BOOLEAN        JitExecOk = FALSE;
+
+  OvirCpuJitInitialize ();
+
+  // Guest ARM64 function:
+  // 1. ADD X0, X1, X2 (0x8B020020)
+  // 2. RET            (0xD65F03C0)
+  CONST UINT8 GuestArmFunction[] = {
+    0x20, 0x00, 0x02, 0x8B,
+    0xC0, 0x03, 0x5F, 0xD6
+  };
+
+  Status = OvirCpuJitCompileBlock (
+    OvirCpuArchArm64,
+    OvirCpuArchX64,
+    GuestArmFunction,
+    sizeof (GuestArmFunction),
+    0x800000,
+    &JitBlock
+    );
+
+  if (!EFI_ERROR (Status) && JitBlock.IsExecutable && JitBlock.EntryPointer != NULL) {
+    JitCompileOk = TRUE;
+
+    // Execute compiled code: compute 100 + 42 = 142
+    Status = OvirCpuJitExecute (&JitBlock, 100, 42, &JitResult);
+    if (!EFI_ERROR (Status) && JitResult == 142) {
+      JitExecOk = TRUE;
+    }
+  }
+
+  OvirCpuJitGetStats (&JitStats);
+  BOOLEAN JitStatsOk = (JitStats.BlocksCompiled >= 1 && JitStats.Invocations >= 1);
+
+  RecordTestResult (
+    L"OVIR-CPU: Dynamic JIT Pipeline & Native Execution Correctness (100+42=142)",
+    (JitCompileOk && JitExecOk && JitStatsOk)
+    );
+
+  // -------------------------------------------------------------
+  // TEST 24: Workload Scheduling Integration with OvScheduler
+  // -------------------------------------------------------------
+  UINT32                   AppTaskId = 0;
+  UINT32                   JitTaskId = 0;
+  UINT32                   TransTaskId = 0;
+  UINT32                   BgTaskId = 0;
+  UINT32                   CpuDispatchedId = 0;
+  OVIR_CPU_SCHEDULER_STATS WkStats;
+  BOOLEAN                  SchedScheduleOk = FALSE;
+  BOOLEAN                  SchedDispatchOk = FALSE;
+
+  OvirCpuSchedulerInitialize ();
+
+  Status = OvirCpuScheduleAppTask (L"AppRender", &AppTaskId);
+  Status = OvirCpuScheduleJitTask (L"HotJitCompile", 0x800000, &JitTaskId);
+  Status = OvirCpuScheduleTranslationTask (L"AheadOfTime", OvirCpuArchArm64, OvirCpuArchX64, 0x400000, 128, &TransTaskId);
+  Status = OvirCpuScheduleBackgroundTask (L"ProfileOpt", &BgTaskId);
+
+  SchedScheduleOk = (AppTaskId != 0 && JitTaskId != 0 && TransTaskId != 0 && BgTaskId != 0);
+
+  Status = OvirCpuSchedulerDispatchNext (&CpuDispatchedId);
+  if (!EFI_ERROR (Status) && CpuDispatchedId != 0) {
+    OvirCpuSchedulerCompleteTask (CpuDispatchedId, EFI_SUCCESS);
+    SchedDispatchOk = TRUE;
+  }
+
+  OvirCpuSchedulerGetStats (&WkStats);
+  BOOLEAN SchedStatsOk = (WkStats.ApplicationTasksSubmitted >= 1 &&
+                          WkStats.JitTasksSubmitted >= 1 &&
+                          WkStats.TranslationTasksSubmitted >= 1 &&
+                          WkStats.BackgroundTasksSubmitted >= 1);
+
+  RecordTestResult (
+    L"OVIR-CPU: Workload Scheduling Integration (Dynamic Core Allocation & Priorities)",
+    (SchedScheduleOk && SchedDispatchOk && SchedStatsOk)
     );
 
   // Dump Full Diagnostic Status

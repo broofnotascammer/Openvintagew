@@ -1,0 +1,31 @@
+## @file
+#  OpenVintage Modular CPU Translation Backend INF.
+#  Phase 4 Architecture-Agnostic CPU Translation Framework.
+#
+#  Copyright (c) 2026 OpenVintage Project. All rights reserved.
+#  SPDX-License-Identifier: BSD-2-Clause-Patent
+##
+
+[Defines]
+  INF_VERSION                    = 0x00010005
+  BASE_NAME                      = OvirCpuBackendLib
+  FILE_GUID                      = F21948AC-85C1-4192-9C12-8501C512F490
+  MODULE_TYPE                    = BASE
+  VERSION_STRING                 = 0.4.0
+  LIBRARY_CLASS                  = OvirCpuBackendLib
+
+[Sources]
+  OvirCpuBackend.c
+  OvirCpuBackendX64.c
+  OvirCpuBackendArm64.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+  OpenVintagePkg/OpenVintagePkg.dec
+
+[LibraryClasses]
+  BaseLib
+  BaseMemoryLib
+  PrintLib
+  OvLoggerLib
+  OvirCpuLib

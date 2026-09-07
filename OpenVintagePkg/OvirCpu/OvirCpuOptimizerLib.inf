@@ -1,0 +1,29 @@
+## @file
+#  OpenVintage CPU Intermediate Representation Optimizer INF.
+#  Phase 4 Safe Non-Speculative Transformation Layer.
+#
+#  Copyright (c) 2026 OpenVintage Project. All rights reserved.
+#  SPDX-License-Identifier: BSD-2-Clause-Patent
+##
+
+[Defines]
+  INF_VERSION                    = 0x00010005
+  BASE_NAME                      = OvirCpuOptimizerLib
+  FILE_GUID                      = 1D549C82-C218-4721-953B-2481A0518290
+  MODULE_TYPE                    = BASE
+  VERSION_STRING                 = 0.4.0
+  LIBRARY_CLASS                  = OvirCpuOptimizerLib
+
+[Sources]
+  OvirCpuOptimizer.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+  OpenVintagePkg/OpenVintagePkg.dec
+
+[LibraryClasses]
+  BaseLib
+  BaseMemoryLib
+  PrintLib
+  OvLoggerLib
+  OvirCpuLib

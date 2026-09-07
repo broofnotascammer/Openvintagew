@@ -7,6 +7,37 @@ and this project adheres to Semantic Versioning.
 
 ---
 
+## [0.4.0] - 2026-09-07
+### Added
+- **OVIR-CPU (CPU Architecture Translation Framework & Intermediate Representation)**:
+  - Designed and implemented a modular CPU translation framework connecting guest architectures to target execution hardware via an architecture-neutral Intermediate Representation (`OVIR-CPU`).
+  - `OvirCpuLib`: Canonical, strongly typed IR representation for virtual registers (`OVIR_VREG`), immediate values (`OVIR_IMM_OPERAND`), base/index/displacement memory references (`OVIR_MEM_OPERAND`), arithmetic, logical, floating-point, SIMD, branch, call, and return operations, complete with basic block and program structure validation.
+  - `OvirCpuDecoderLib`: Isolated, architecture-specific decoders:
+    - `OvirCpuDecoderArm64.c`: Decodes 32-bit fixed AArch64 machine instructions (ALU, shifts, load/store, conditional branches, FP, and SIMD vector operations).
+    - `OvirCpuDecoderX64.c`: Decodes variable-length x86-64 instructions with REX prefixes, operand-size overrides, SIB/ModR/M bytes, and jump/call/return control flow.
+  - `OvirCpuOptimizerLib`: Safe, non-speculative optimization passes prioritizing correctness:
+    - Constant folding for compile-time arithmetic simplification.
+    - Redundant identity move elimination (`MOV Rx, Rx`).
+    - Dead code elimination for unreachable instructions following terminators (`RET`, `JMP`).
+  - `OvirCpuBackendLib`: Native target machine code emission:
+    - `OvirCpuBackendX64.c`: Emits native x86-64 machine instructions, lowering 3-address IR to 2-address instructions.
+    - `OvirCpuBackendArm64.c`: Emits native 32-bit AArch64 machine instructions.
+  - `OvirCpuCacheLib`: High-performance translation caching with strict metadata validation (Source/Target Arch, OpenVintage version, translator version, configuration flags), code hash checking, and automatic invalidation of stale entries.
+  - `OvirCpuJitLib`: Dynamic JIT compilation pipeline (Decode -> Optimize -> Emit -> Cache) and live native execution engine.
+  - `OvirCpuSchedulerLib`: Cooperative integration with `OvScheduler` allocating CPU translation tasks dynamically without permanent core pinning, while prioritizing interactive application responsiveness.
+- **Architectural Self-Test Suite Expansion (`OvSelfTestApp.efi`)**:
+  - Expanded test suite from 16 to 24 automated tests covering all Phase 4 CPU subsystems.
+  - Added Test 17: Multi-Architecture Instruction Decoding (ARM64 & x86-64).
+  - Added Test 18: IR Generation, Basic Blocks & Program Structure Validation.
+  - Added Test 19: Safe Optimizer (Constant Folding, Identity & Dead Code Elimination).
+  - Added Test 20: Target Machine Code Emission (x86-64 and ARM64 Backends).
+  - Added Test 21: Translation Cache (Hash Verification, Hit/Miss Tracking).
+  - Added Test 22: Cache Invalidation (Version, Translator & Configuration Safeguards).
+  - Added Test 23: Dynamic JIT Pipeline & Native Execution Correctness (100+42=142).
+  - Added Test 24: Workload Scheduling Integration (Dynamic Core Allocation & Priorities).
+- **QEMU Verification**:
+  - 100% of all 24 architectural tests passing cleanly under QEMU emulation with zero memory leaks.
+
 ## [0.3.0] - 2026-09-07
 ### Added
 - **OVIR-GPU (Graphics Intermediate Representation)**:

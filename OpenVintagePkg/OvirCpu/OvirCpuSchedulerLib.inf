@@ -1,0 +1,30 @@
+## @file
+#  OpenVintage CPU Translation & Workload Scheduler Integration INF.
+#  Phase 4 Architecture-Agnostic CPU Translation Framework.
+#
+#  Copyright (c) 2026 OpenVintage Project. All rights reserved.
+#  SPDX-License-Identifier: BSD-2-Clause-Patent
+##
+
+[Defines]
+  INF_VERSION                    = 0x00010005
+  BASE_NAME                      = OvirCpuSchedulerLib
+  FILE_GUID                      = 61A1948C-7213-4B92-9C12-8501C512F490
+  MODULE_TYPE                    = BASE
+  VERSION_STRING                 = 0.4.0
+  LIBRARY_CLASS                  = OvirCpuSchedulerLib
+
+[Sources]
+  OvirCpuScheduler.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+  OpenVintagePkg/OpenVintagePkg.dec
+
+[LibraryClasses]
+  BaseLib
+  BaseMemoryLib
+  PrintLib
+  OvLoggerLib
+  OvSchedulerLib
+  OvirCpuLib

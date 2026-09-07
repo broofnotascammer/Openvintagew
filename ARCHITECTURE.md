@@ -282,7 +282,93 @@ Direct translators between every pair of graphics APIs result in an unmaintainab
 
 ---
 
-## 6. QEMU Virtualized Test Architecture
+## 6. OVIR-CPU (CPU Intermediate Representation & Binary Translation Engine)
+
+```
+       ARM Architecture                          x86 / x86-64 Architecture
+              │                                              │
+              ▼                                              ▼
+   [ ARM64 Decoder Component ]                    [ x86-64 Decoder Component ]
+   (OvirCpuDecoderArm64.c)                        (OvirCpuDecoderX64.c)
+              │                                              │
+              └──────────────────────┬───────────────────────┘
+                                     │
+                                     ▼
+                        [ OVIR-CPU Architecture IR ]
+                (Architecture-Neutral Representation & CFG)
+                                     │
+                                     ▼
+                         [ Safe IR Optimizer Passes ]
+               (Constant Folding, Redundant Move & DCE)
+                                     │
+                                     ▼
+                         [ Target Backend Emission ]
+                      ┌──────────────┴──────────────┐
+                      ▼                             ▼
+             [ x86-64 Backend ]              [ ARM64 Backend ]
+           (OvirCpuBackendX64.c)           (OvirCpuBackendArm64.c)
+                      │                             │
+                      └──────────────┬──────────────┘
+                                     │
+                                     ▼
+                     [ Translation Cache & Invalidation ]
+                     (Metadata, Hash Verification, Versioning)
+                                     │
+                                     ▼
+                     [ OvScheduler Workload Integration ]
+                   (Dynamic Core Allocation, Priorities)
+```
+
+### 6.1 Decoupled Multi-Architecture Decoders (`OvirCpuDecoderLib`)
+OpenVintage CPU translation strictly isolates instruction decoding into independent, modular architecture files:
+- **ARM64 Decoder (`OvirCpuDecoderArm64.c`)**: Decodes fixed-width 32-bit AArch64 instructions:
+  - ALU & Bitwise: `ADD`, `SUB`, `AND`, `ORR`, `EOR`, `MOV` (register/immediate)
+  - Shifts & Extensions: `LSL`, `LSR`, `ASR`, `ROR`
+  - Memory: Load (`LDR`) and Store (`STR`) with register and base+offset addressing
+  - Branches: Unconditional (`B`, `BR`), Conditional (`B.cond`), Calls (`BL`, `BLR`), Returns (`RET`)
+  - Floating-Point: `FADD`, `FSUB`, `FMUL`, `FDIV`, `FMOV`, `FCMP`
+  - SIMD / Vector: Advanced SIMD integer and float vector instructions (`VADD`)
+- **x86-64 Decoder (`OvirCpuDecoderX64.c`)**: Decodes variable-length x86-64 machine code:
+  - REX prefixes (`REX.W`, `REX.R`, `REX.X`, `REX.B`) and operand size overrides (`0x66`)
+  - ALU instructions: `ADD`, `SUB`, `AND`, `OR`, `XOR`, `CMP`, `TEST`
+  - Control Flow: Short/near conditional jumps (`0x70-0x7F`, `0x0F 0x80-0x8F`), unconditional jumps (`0xEB`, `0xE9`), calls (`0xE8`), and returns (`0xC3`)
+  - Mov & Load/Store: 32-bit and 64-bit immediate movs (`0xB8-0xBF`, `0xC7`), register-to-register moves (`0x89`, `0x8B`)
+  - ModR/M and SIB byte decoding for memory operand address reconstruction.
+
+### 6.2 Architecture-Neutral Intermediate Representation (`OvirCpuLib`)
+- **Typed Operands**: Architecture-neutral representation for virtual registers (`OVIR_VREG`), immediate constants (`OVIR_IMM_OPERAND`), base+index+displacement memory references (`OVIR_MEM_OPERAND`), and block labels.
+- **Explicit Operations**: Instructions record opcodes, bit widths (8, 16, 32, 64, 128), condition flags, and flag side effects (`SetFlags`).
+- **Basic Blocks & CFG**: Instructions are grouped into atomic basic blocks terminated by branch, return, or trap instructions, ensuring predictable control flow graph construction.
+
+### 6.3 Safe Optimizer Passes (`OvirCpuOptimizerLib`)
+- **Correctness First**: Avoids unsafe speculative optimizations that violate memory models or side effects.
+- **Constant Folding**: Evaluates constant arithmetic and bitwise expressions at translation time.
+- **Redundant Move Elimination**: Strips identity moves (`MOV Rx, Rx`) that do not alter state or flags.
+- **Dead Code Elimination**: Prunes unreachable instructions following unconditional terminator instructions (`RET`, `JMP`).
+
+### 6.4 Target Machine Code Backends (`OvirCpuBackendLib`)
+- **x86-64 Backend (`OvirCpuBackendX64.c`)**:
+  - Lowers 3-address IR operands (`Dst = Src1 OP Src2`) to 2-address x86-64 native instructions (`Dst OP= Src2`).
+  - Emits native x86-64 opcodes with REX prefixes for 64-bit operations.
+  - Generates function returns (`RET` - `0xC3`) and function calls.
+- **ARM64 Backend (`OvirCpuBackendArm64.c`)**:
+  - Emits 32-bit fixed AArch64 machine instructions.
+  - Directly maps 3-address IR instructions into native ARM64 register layouts.
+  - Emits `RET` (`0xD65F03C0`) and branch targets.
+
+### 6.5 Translation Cache & Invalidation (`OvirCpuCacheLib`)
+- **Metadata Protection**: Translation cache entries record source architecture, target architecture, OpenVintage version, translator version, and configuration flags.
+- **Hash Verification**: 64-bit hashing of guest code prevents collisions and identifies code changes.
+- **Safe Invalidation**: When versions or hardware configuration flags change, incompatible cached translations are flushed and invalidated.
+
+### 6.6 Workload Integration with OvScheduler (`OvirCpuSchedulerLib`)
+- **Dynamic Task Coordination**: CPU translation tasks (`OvirCpuScheduleJitTask`, `OvirCpuScheduleTranslationTask`) are dispatched alongside application workloads.
+- **Priority Tiering**: Interactive application tasks receive high priority (Priority 3) while background optimization passes run at idle/low priority (Priority 1).
+- **Zero Permanent Pinning**: Adheres strictly to operating system scheduling mechanisms without hardcoding permanent core affinity masks (`CoreAffinityMask = 0`).
+
+---
+
+## 7. QEMU Virtualized Test Architecture
 
 Testing is executed in an automated, headless virtual machine environment:
 - **Host Test Harness**: `scripts/test_qemu.sh`
@@ -292,5 +378,5 @@ Testing is executed in an automated, headless virtual machine environment:
 - **Telemetry Channel**: ISA debugcon / Serial port redirection to file
 - **Verification Suites**:
   1. `OpenVintageBootApp.efi`: Bootloader initialization, hardware discovery, and module state verification.
-  2. `OvSelfTestApp.efi`: 16 comprehensive architectural tests covering core subsystems and OVIR-GPU components.
+  2. `OvSelfTestApp.efi`: 24 comprehensive architectural tests covering core subsystems, OVIR-GPU components, and OVIR-CPU subsystems.
 - **Pass Rule**: Both apps return `EFI_SUCCESS` and output `ALL OPENVINTAGE ARCHITECTURAL TESTS PASSED!`.

@@ -73,6 +73,13 @@
   OvirResourceLib|OpenVintagePkg/OvirGpu/OvirResourceLib.inf
   OvirPerfLib|OpenVintagePkg/OvirGpu/OvirPerfLib.inf
   OvirResolverLib|OpenVintagePkg/OvirGpu/OvirResolverBridgeLib.inf
+  OvirCpuLib|OpenVintagePkg/OvirCpu/OvirCpuLib.inf
+  OvirCpuDecoderLib|OpenVintagePkg/OvirCpu/OvirCpuDecoderLib.inf
+  OvirCpuOptimizerLib|OpenVintagePkg/OvirCpu/OvirCpuOptimizerLib.inf
+  OvirCpuBackendLib|OpenVintagePkg/OvirCpu/OvirCpuBackendLib.inf
+  OvirCpuCacheLib|OpenVintagePkg/OvirCpu/OvirCpuCacheLib.inf
+  OvirCpuJitLib|OpenVintagePkg/OvirCpu/OvirCpuJitLib.inf
+  OvirCpuSchedulerLib|OpenVintagePkg/OvirCpu/OvirCpuSchedulerLib.inf
 
 [LibraryClasses.common.UEFI_APPLICATION]
   MemoryAllocationLib|MdePkg/Library/UefiMemoryAllocationLib/UefiMemoryAllocationLib.inf
@@ -112,6 +119,13 @@
   OpenVintagePkg/OvirGpu/OvirResourceLib.inf
   OpenVintagePkg/OvirGpu/OvirPerfLib.inf
   OpenVintagePkg/OvirGpu/OvirResolverBridgeLib.inf
+  OpenVintagePkg/OvirCpu/OvirCpuLib.inf
+  OpenVintagePkg/OvirCpu/OvirCpuDecoderLib.inf
+  OpenVintagePkg/OvirCpu/OvirCpuOptimizerLib.inf
+  OpenVintagePkg/OvirCpu/OvirCpuBackendLib.inf
+  OpenVintagePkg/OvirCpu/OvirCpuCacheLib.inf
+  OpenVintagePkg/OvirCpu/OvirCpuJitLib.inf
+  OpenVintagePkg/OvirCpu/OvirCpuSchedulerLib.inf
 
   # OpenVintage DXE Drivers
   OpenVintagePkg/Drivers/OpenVintageHalDxe/OpenVintageHalDxe.inf

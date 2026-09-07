@@ -26,6 +26,8 @@
 #define OV_MEM_TAG_SHDR     0x52444853  // 'SHDR'
 #define OV_MEM_TAG_PIPE     0x45504950  // 'PIPE'
 #define OV_MEM_TAG_TEXR     0x52584554  // 'TEXR'
+#define OV_MEM_TAG_OCPU     0x5550434F  // 'OCPU'
+#define OV_MEM_TAG_OJIT     0x54494A4F  // 'OJIT'
 
 //
 // Memory Allocation Statistics

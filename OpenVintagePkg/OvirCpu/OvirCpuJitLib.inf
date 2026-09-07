@@ -1,0 +1,35 @@
+## @file
+#  OpenVintage CPU Just-In-Time (JIT) Translation Engine INF.
+#  Phase 4 Architecture-Agnostic CPU Translation Framework.
+#
+#  Copyright (c) 2026 OpenVintage Project. All rights reserved.
+#  SPDX-License-Identifier: BSD-2-Clause-Patent
+##
+
+[Defines]
+  INF_VERSION                    = 0x00010005
+  BASE_NAME                      = OvirCpuJitLib
+  FILE_GUID                      = 53A1948C-6213-4B92-9C12-8501C512F490
+  MODULE_TYPE                    = BASE
+  VERSION_STRING                 = 0.4.0
+  LIBRARY_CLASS                  = OvirCpuJitLib
+
+[Sources]
+  OvirCpuJit.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+  OpenVintagePkg/OpenVintagePkg.dec
+
+[LibraryClasses]
+  BaseLib
+  BaseMemoryLib
+  PrintLib
+  OvLoggerLib
+  OvMemoryLib
+  OvirPerfLib
+  OvirCpuLib
+  OvirCpuDecoderLib
+  OvirCpuOptimizerLib
+  OvirCpuBackendLib
+  OvirCpuCacheLib
