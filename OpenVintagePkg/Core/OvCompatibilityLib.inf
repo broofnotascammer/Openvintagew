@@ -1,0 +1,28 @@
+## @file
+#  OpenVintage Compatibility Subsystem Library INF
+#
+#  Copyright (c) 2026 OpenVintage Project. All rights reserved.
+#  SPDX-License-Identifier: BSD-2-Clause-Patent
+##
+
+[Defines]
+  INF_VERSION                    = 0x00010005
+  BASE_NAME                      = OvCompatibilityLib
+  FILE_GUID                      = C4D5E6F7-8A9B-4C01-9D2E-3F4A5B6C7D8E
+  MODULE_TYPE                    = BASE
+  VERSION_STRING                 = 1.0
+  LIBRARY_CLASS                  = OvCompatibilityLib
+
+[Sources]
+  OvCompatibility.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+  OpenVintagePkg/OpenVintagePkg.dec
+
+[LibraryClasses]
+  BaseLib
+  BaseMemoryLib
+  PrintLib
+  OvLoggerLib
+  OvHardwareLib

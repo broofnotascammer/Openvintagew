@@ -1,0 +1,32 @@
+## @file
+#  OpenVintage Reproducible Benchmark Framework Library INF
+#
+#  Copyright (c) 2026 OpenVintage Project. All rights reserved.
+#  SPDX-License-Identifier: BSD-2-Clause-Patent
+##
+
+[Defines]
+  INF_VERSION                    = 0x00010005
+  BASE_NAME                      = OvBenchmarkLib
+  FILE_GUID                      = E6F7A8B9-0C1D-2E3F-4A5B-6C7D8E9F0A1B
+  MODULE_TYPE                    = BASE
+  VERSION_STRING                 = 1.0
+  LIBRARY_CLASS                  = OvBenchmarkLib
+
+[Sources]
+  OvBenchmark.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+  OpenVintagePkg/OpenVintagePkg.dec
+
+[LibraryClasses]
+  BaseLib
+  BaseMemoryLib
+  PrintLib
+  OvLoggerLib
+  OvirCpuLib
+  OvirCpuDecoderLib
+  OvirCpuOptimizerLib
+  OvirCpuBackendLib
+  OvirCpuCacheLib

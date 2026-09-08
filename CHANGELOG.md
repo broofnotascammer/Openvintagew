@@ -7,6 +7,37 @@ and this project adheres to Semantic Versioning.
 
 ---
 
+## [0.5.0] - 2026-09-08
+### Added
+- **Phase 5 Full Ecosystem Integration & Optimization**:
+  - **Integrated Workload Resolver (`OvResolverLib`)**:
+    - Implemented `OvResolverEvaluateIntegrated` combining CPU and GPU requirements, memory constraints, VRAM allocation, and thermal limitations into a unified execution plan.
+    - Resolves Native vs Translated CPU, Native vs Translated GPU, Direct vs Translated API, Texture clamping, and Resource quotas.
+  - **Measurable Performance System (`OvPerfSystemLib`)**:
+    - Real-time telemetry tracking CPU load, active cores, system RAM, GPU memory, translation overhead, shader compilation time, cache hit rate, and frame timing.
+  - **Dynamic Resource Management (`OvResourceManagerLib`)**:
+    - Platform-aware resource control supporting `Balanced`, `Performance`, `MaxPerformance`, and `BatteryLowPower` profiles.
+    - Capability gating preventing invalid profiles on limited hardware.
+  - **Unified Multi-Tier Cache (`OvUnifiedCacheLib`)**:
+    - Coordinated CPU translation cache, GPU shader cache, pipeline cache, and compatibility cache.
+    - Generational invalidation mechanisms triggered by hardware changes, config changes, version changes, and memory pressure.
+  - **Grounded Compatibility Framework (`OvCompatibilityLib`)**:
+    - Empirical application profile registry and hardware constraint matching without fabricated results.
+  - **Unified Diagnostics (`OvDiagnosticsLib`)**:
+    - Comprehensive system diagnostic report auditing hardware, CPU, GPU, memory, APIs, caches, and silicon limitations.
+  - **Reproducible Empirical Benchmarking (`OvBenchmarkLib`)**:
+    - Real hardware TSC cycle timing measuring ALU constant folding, dead code elimination, and translation cache retrieval.
+- **Architectural Self-Test Suite Expansion (`OvSelfTestApp.efi`)**:
+  - Expanded test suite from 24 to 32 automated tests covering all Phase 5 subsystems.
+  - Added Test 25: Phase 5 Unified Resolver Integration.
+  - Added Test 26: Performance Subsystem (CPU, GPU, Memory, Translation & Frame Timing Metrics).
+  - Added Test 27: Resource Management & Platform Profiles.
+  - Added Test 28: Unified Cache Subsystem (Multi-Tier Integration).
+  - Added Test 29: Cache Invalidation Reliability (Version, Generation & Integrity Verification).
+  - Added Test 30: Compatibility Framework (Application Requirements & Hardware Constraints).
+  - Added Test 31: Unified Diagnostics (Hardware, CPU, GPU, APIs, Cache & Quirk Auditing).
+  - Added Test 32: Reproducible Benchmark Suite (Empirical TSC Baseline vs Optimized Path).
+
 ## [0.4.0] - 2026-09-07
 ### Added
 - **OVIR-CPU (CPU Architecture Translation Framework & Intermediate Representation)**:

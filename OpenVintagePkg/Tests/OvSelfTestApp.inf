@@ -52,3 +52,9 @@
   OvirCpuCacheLib
   OvirCpuJitLib
   OvirCpuSchedulerLib
+  OvPerfSystemLib
+  OvResourceManagerLib
+  OvUnifiedCacheLib
+  OvCompatibilityLib
+  OvDiagnosticsLib
+  OvBenchmarkLib

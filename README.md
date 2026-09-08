@@ -24,10 +24,10 @@ OpenVintage now includes a full native **EDK II Platform Package (`OpenVintagePk
        OpenVintagePkg            OVResolver            OVScheduler
        (EDK II / UEFI)      (Intelligent Routing)  (Resource Manager)
               │                      │                      │
-       ┌──────┴──────┐               │               ┌──────┴──────┐
-       │             │               │               │             │
-   Firmware      Bootloader       OVIR-GPU        CPU Cores     Thermal /
- (OPENVINTAGE.fd) (.EFI App)    (Graphics IR)      Affinity     RAM Budgets
+       ┌──────┴──────┐        ┌──────┴──────┐        ┌──────┴──────┐
+       │             │        │             │        │             │
+   Firmware      Bootloader  OVIR-GPU   OVIR-CPU  CPU Cores    Thermal /
+ (OPENVINTAGE.fd) (.EFI App) (Graphics)   (CPU)    Affinity    RAM Budgets
 ```
 
 ---
@@ -39,32 +39,33 @@ The OpenVintage platform firmware is organized as a standard EDK II package:
 ```
 OpenVintagePkg/
 ├── OpenVintagePkg.dec              # Package declaration & public GUID/PCD definitions
-├── OpenVintagePkg.dsc              # Platform description file (X64 GCC5 build configuration)
+├── OpenVintagePkg.dsc              # Platform description file (X64 GCC build configuration)
 ├── OpenVintagePkg.fdf              # Flash definition file (FV and FD layout mappings)
 ├── Include/
-│   ├── Library/
-│   │   ├── OpenVintageCoreLib.h    # Core platform, memory map, CPUID, and device APIs
-│   │   └── OpenVintageLogLib.h     # Subsystem logging and diagnostics API
-│   └── Protocol/
-│       ├── OpenVintageHal.h        # HAL Protocol (CPU/GPU capabilities interface)
-│       └── OpenVintagePlatform.h   # Platform status and information protocol
-├── Library/
-│   ├── OpenVintageCoreLib/         # Core hardware detection implementation
-│   │   ├── OpenVintageCoreLib.inf
-│   │   └── OpenVintageCoreLib.c
-│   └── OpenVintageLogLib/          # Lightweight UEFI console/serial logging
-│       ├── OpenVintageLogLib.inf
-│       └── OpenVintageLogLib.c
+│   ├── OpenVintage.h               # Master umbrella header
+│   └── Library/
+│       ├── OvCoreLib.h             # Core initialization & lifecycle management
+│       ├── OvConfigLib.h           # Configuration profiles & feature flags
+│       ├── OvMemoryLib.h           # Tagged memory allocation & leak auditing
+│       ├── OvHardwareLib.h         # Multi-subsystem hardware discovery
+│       ├── OvModuleLib.h           # Dynamic module registration & lifecycle
+│       ├── OvResolverLib.h         # Capability matrix & intelligent dispatch
+│       ├── OvSchedulerLib.h        # Cooperative priority queue scheduler
+│       ├── OvLoggerLib.h           # Multi-level structured logger
+│       ├── OvGpuCapabilityLib.h    # GPU capability & texture format support
+│       ├── OvirGpuLib.h            # OVIR-GPU unified graphics IR
+│       └── OvirCpuLib.h            # OVIR-CPU architecture translation IR
+├── Core/                           # Core runtime, configuration, and modules
+├── Memory/                         # Tagged memory pool management
+├── Hardware/                       # CPU, GPU, memory, platform discovery
+├── Resolver/                       # Hardware-aware capability resolution
+├── Scheduler/                      # Priority task scheduling engine
+├── OvirGpu/                        # OVIR-GPU graphics translation & adapters
+├── OvirCpu/                        # OVIR-CPU binary translation & decoders
 ├── Drivers/
-│   └── OpenVintageHalDxe/          # HAL DXE Driver (installs gOpenVintageHalProtocolGuid)
-│       ├── OpenVintageHalDxe.inf
-│       ├── OpenVintageHalDxe.c
-│       └── OpenVintageHalDxe.efi   # Compiled DXE Driver binary
+│   └── OpenVintageHalDxe/          # HAL DXE Driver
 ├── OpenVintageBootApp/             # Native X64 UEFI Boot Application
-│   ├── OpenVintageBootApp.inf
-│   ├── OpenVintageBootApp.c
-│   └── OpenVintageBootApp.efi      # Compiled UEFI executable binary
-├── Platform/                       # Platform-specific definitions and board profiles
+├── Tests/                          # Comprehensive self-test application (24 tests)
 └── Firmware/                       # Generated firmware image and volumes
     ├── OPENVINTAGE.fd              # 4.0 MB Flash Device Image
     └── OPENVINTAGE_DXEFV.Fv        # 4.0 MB Firmware Volume
@@ -78,7 +79,8 @@ All production binaries are built from source and verified using standard PE32+ 
 
 | Artifact | Type | Size | Description |
 | :--- | :--- | :--- | :--- |
-| `bin/OpenVintageBootApp.efi` | PE32+ x86-64 EFI App | ~13 KB | Native X64 UEFI application entry point |
+| `bin/OpenVintageBootApp.efi` | PE32+ x86-64 EFI App | ~48 KB | Native X64 UEFI boot application entry point |
+| `bin/OvSelfTestApp.efi` | PE32+ x86-64 EFI App | ~320 KB | 24-subsystem architectural self-test diagnostic suite |
 | `bin/OPENVINTAGE.fd` | Binary Flash Image | 4.0 MB | Complete SPI Flash device image |
 | `OpenVintagePkg/Firmware/OPENVINTAGE_DXEFV.Fv` | PI Firmware Volume | 4.0 MB | DXE Firmware Volume containing HAL and BootApp |
 | `OpenVintagePkg/Drivers/OpenVintageHalDxe/OpenVintageHalDxe.efi` | PE32+ x86-64 DXE Driver | ~8.2 KB | Hardware abstraction layer boot services driver |
@@ -149,7 +151,44 @@ OpenVintageBootApp.efi (Entry Point: UefiMain)
 
 ---
 
-## 6. Engineering Discipline
+## 6. Phase 5: Final Architecture & Optimization
+
+Phase 5 establishes end-to-end integration of all OpenVintage systems into a unified execution pipeline:
+
+```
+                    FINAL ARCHITECTURE EXECUTION PIPELINE
+
+                          OpenVintage Boot/Firmware
+                                     ↓
+                             OpenVintage Core
+                                     ↓
+                            Hardware Detection
+                                     ↓
+                                OVResolver
+                                     ↓
+                  ┌──────────────────┼──────────────────┐
+                  │                  │                  │
+               OVIR-CPU           OVIR-GPU         OVScheduler
+                  │                  │                  │
+             CPU Backend        GPU Backend     Resource Management
+                  └──────────────────┼──────────────────┘
+                                     ↓
+                              Application/Game
+```
+
+### 6.1 Integrated Subsystems
+
+- **Integrated OVResolver (`OvResolverLib`)**: Unifies multi-architecture CPU evaluation with GPU backend routing, memory bounds, thermal throttling, and cache hits to create complete execution plans.
+- **Performance Subsystem (`OvPerfSystemLib`)**: Measurable performance telemetry capturing CPU load, memory usage, GPU VRAM, translation overhead, shader compilation time, cache hit rate, and frame timing.
+- **Dynamic Resource Management (`OvResourceManagerLib`)**: Profile-based resource enforcement (`Balanced`, `Performance`, `MaxPerformance`, `BatteryLowPower`) with hardware capability checks.
+- **Unified Multi-Tier Cache (`OvUnifiedCacheLib`)**: Integrates CPU translation, GPU shader, pipeline, and compatibility caches with reliable generational invalidation.
+- **Compatibility Framework (`OvCompatibilityLib`)**: Empirically records application requirements, hardware limits, and silicon quirks (e.g. Intel Gen7 texture clamping) without fabricated claims.
+- **Unified Diagnostics (`OvDiagnosticsLib`)**: System auditing of hardware, CPU, GPU, memory, APIs, caches, and limitations.
+- **Reproducible Benchmarking (`OvBenchmarkLib`)**: Real hardware TSC cycle timing measuring arithmetic constant folding, dead code elimination, and translation cache retrieval.
+
+---
+
+## 7. Engineering Discipline
 
 1. **Deterministic Verification**: No component is marked complete without actual binary artifacts and passing execution tests.
 2. **Modular Decoupling**: Subsystems adhere to clear PI/UEFI and POSIX boundaries with zero circular dependencies.

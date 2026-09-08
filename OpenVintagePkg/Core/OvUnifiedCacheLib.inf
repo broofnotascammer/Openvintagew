@@ -1,0 +1,30 @@
+## @file
+#  OpenVintage Unified Cache Subsystem Library INF
+#
+#  Copyright (c) 2026 OpenVintage Project. All rights reserved.
+#  SPDX-License-Identifier: BSD-2-Clause-Patent
+##
+
+[Defines]
+  INF_VERSION                    = 0x00010005
+  BASE_NAME                      = OvUnifiedCacheLib
+  FILE_GUID                      = B1C2D3E4-F5A6-47B8-9C0D-1E2F3A4B5C6D
+  MODULE_TYPE                    = BASE
+  VERSION_STRING                 = 1.0
+  LIBRARY_CLASS                  = OvUnifiedCacheLib
+
+[Sources]
+  OvUnifiedCache.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+  OpenVintagePkg/OpenVintagePkg.dec
+
+[LibraryClasses]
+  BaseLib
+  BaseMemoryLib
+  PrintLib
+  OvLoggerLib
+  OvirCpuCacheLib
+  OvirShaderLib
+  OvirPipelineLib

@@ -1,0 +1,29 @@
+## @file
+#  OpenVintage Performance Subsystem Library INF
+#
+#  Copyright (c) 2026 OpenVintage Project. All rights reserved.
+#  SPDX-License-Identifier: BSD-2-Clause-Patent
+##
+
+[Defines]
+  INF_VERSION                    = 0x00010005
+  BASE_NAME                      = OvPerfSystemLib
+  FILE_GUID                      = E1A2B3C4-5D6E-7F8A-9B0C-1D2E3F4A5B6C
+  MODULE_TYPE                    = BASE
+  VERSION_STRING                 = 1.0
+  LIBRARY_CLASS                  = OvPerfSystemLib
+
+[Sources]
+  OvPerfSystem.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+  OpenVintagePkg/OpenVintagePkg.dec
+
+[LibraryClasses]
+  BaseLib
+  BaseMemoryLib
+  PrintLib
+  OvLoggerLib
+  OvHardwareLib
+  OvMemoryLib

@@ -1,0 +1,30 @@
+## @file
+#  OpenVintage Resource Manager Library INF
+#
+#  Copyright (c) 2026 OpenVintage Project. All rights reserved.
+#  SPDX-License-Identifier: BSD-2-Clause-Patent
+##
+
+[Defines]
+  INF_VERSION                    = 0x00010005
+  BASE_NAME                      = OvResourceManagerLib
+  FILE_GUID                      = A7B8C9D0-1E2F-43A4-B5C6-D7E8F9A0B1C2
+  MODULE_TYPE                    = BASE
+  VERSION_STRING                 = 1.0
+  LIBRARY_CLASS                  = OvResourceManagerLib
+
+[Sources]
+  OvResourceManager.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+  OpenVintagePkg/OpenVintagePkg.dec
+
+[LibraryClasses]
+  BaseLib
+  BaseMemoryLib
+  PrintLib
+  OvLoggerLib
+  OvHardwareLib
+  OvMemoryLib
+  OvSchedulerLib

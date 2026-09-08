@@ -80,6 +80,12 @@
   OvirCpuCacheLib|OpenVintagePkg/OvirCpu/OvirCpuCacheLib.inf
   OvirCpuJitLib|OpenVintagePkg/OvirCpu/OvirCpuJitLib.inf
   OvirCpuSchedulerLib|OpenVintagePkg/OvirCpu/OvirCpuSchedulerLib.inf
+  OvPerfSystemLib|OpenVintagePkg/Core/OvPerfSystemLib.inf
+  OvResourceManagerLib|OpenVintagePkg/Scheduler/OvResourceManagerLib.inf
+  OvUnifiedCacheLib|OpenVintagePkg/Core/OvUnifiedCacheLib.inf
+  OvCompatibilityLib|OpenVintagePkg/Core/OvCompatibilityLib.inf
+  OvDiagnosticsLib|OpenVintagePkg/Core/OvDiagnosticsLib.inf
+  OvBenchmarkLib|OpenVintagePkg/Core/OvBenchmarkLib.inf
 
 [LibraryClasses.common.UEFI_APPLICATION]
   MemoryAllocationLib|MdePkg/Library/UefiMemoryAllocationLib/UefiMemoryAllocationLib.inf
@@ -92,7 +98,7 @@
 ################################################################################
 [PcdsFixedAtBuild]
   gOpenVintagePkgTokenSpaceGuid.PcdOpenVintageBannerEnable|TRUE
-  gOpenVintagePkgTokenSpaceGuid.PcdOpenVintageVersionString|L"OpenVintage Platform Firmware v0.2.0 (X64)"
+  gOpenVintagePkgTokenSpaceGuid.PcdOpenVintageVersionString|L"OpenVintage Platform Firmware v0.5.0 (Phase 5)"
   gOpenVintagePkgTokenSpaceGuid.PcdOpenVintageTargetArchitecture|L"Intel Core 2 / Nehalem / Sandy / Ivy / Haswell"
   gOpenVintagePkgTokenSpaceGuid.PcdOpenVintageLogLevel|0x00000003
 
@@ -126,6 +132,12 @@
   OpenVintagePkg/OvirCpu/OvirCpuCacheLib.inf
   OpenVintagePkg/OvirCpu/OvirCpuJitLib.inf
   OpenVintagePkg/OvirCpu/OvirCpuSchedulerLib.inf
+  OpenVintagePkg/Core/OvPerfSystemLib.inf
+  OpenVintagePkg/Scheduler/OvResourceManagerLib.inf
+  OpenVintagePkg/Core/OvUnifiedCacheLib.inf
+  OpenVintagePkg/Core/OvCompatibilityLib.inf
+  OpenVintagePkg/Core/OvDiagnosticsLib.inf
+  OpenVintagePkg/Core/OvBenchmarkLib.inf
 
   # OpenVintage DXE Drivers
   OpenVintagePkg/Drivers/OpenVintageHalDxe/OpenVintageHalDxe.inf

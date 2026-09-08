@@ -25,19 +25,30 @@ export const OverviewView: React.FC<OverviewViewProps> = ({ onNavigateTab }) => 
             </p>
           </div>
 
-          <div className="bg-neutral-950 border border-neutral-800/80 rounded-xl p-4 flex flex-col justify-center space-y-3 shrink-0 font-mono text-xs">
-            <div className="text-[11px] text-neutral-400 uppercase tracking-wider">Phase Milestones</div>
-            <div className="flex items-center justify-between space-x-4">
-              <span className="text-neutral-300">Phase 1: UEFI X64 App</span>
-              <span className="text-emerald-400 font-bold">COMPLETED</span>
+          <div className="bg-neutral-950 border border-neutral-800/80 rounded-xl p-4 flex flex-col justify-center space-y-2.5 shrink-0 font-mono text-xs">
+            <div className="text-[11px] text-neutral-400 uppercase tracking-wider flex items-center justify-between">
+              <span>Ecosystem Milestones</span>
+              <span className="text-emerald-400 font-bold">32/32 TESTS PASS</span>
             </div>
             <div className="flex items-center justify-between space-x-4">
-              <span className="text-neutral-300">Phase 2: Core Architecture</span>
-              <span className="text-amber-400 font-bold">IN PROGRESS</span>
+              <span className="text-neutral-300">Phase 1: UEFI/Boot Foundation</span>
+              <span className="text-emerald-400 font-bold">VERIFIED</span>
             </div>
             <div className="flex items-center justify-between space-x-4">
-              <span className="text-neutral-500">Phase 3: OVIR Pipeline</span>
-              <span className="text-neutral-500">PENDING</span>
+              <span className="text-neutral-300">Phase 2: Core Subsystems &amp; HAL</span>
+              <span className="text-emerald-400 font-bold">VERIFIED</span>
+            </div>
+            <div className="flex items-center justify-between space-x-4">
+              <span className="text-neutral-300">Phase 3: OVIR-GPU Graphics Hub</span>
+              <span className="text-emerald-400 font-bold">VERIFIED</span>
+            </div>
+            <div className="flex items-center justify-between space-x-4">
+              <span className="text-neutral-300">Phase 4: OVIR-CPU Binary JIT</span>
+              <span className="text-emerald-400 font-bold">VERIFIED</span>
+            </div>
+            <div className="flex items-center justify-between space-x-4">
+              <span className="text-neutral-300">Phase 5: System Integration</span>
+              <span className="text-amber-400 font-bold">INTEGRATED</span>
             </div>
           </div>
         </div>

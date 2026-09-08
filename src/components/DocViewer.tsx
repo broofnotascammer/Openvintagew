@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { FileText, BookOpen, CheckCircle, ListFilter } from 'lucide-react';
 
 interface DocViewerProps {
+  systemStatusContent?: string;
   statusContent: string;
   archContent: string;
   readmeContent: string;
@@ -9,14 +10,16 @@ interface DocViewerProps {
 }
 
 export const DocViewer: React.FC<DocViewerProps> = ({
+  systemStatusContent,
   statusContent,
   archContent,
   readmeContent,
   changelogContent,
 }) => {
-  const [selectedDoc, setSelectedDoc] = useState<'status' | 'arch' | 'readme' | 'changelog'>('status');
+  const [selectedDoc, setSelectedDoc] = useState<'system' | 'status' | 'arch' | 'readme' | 'changelog'>('system');
 
   const docs = [
+    { id: 'system' as const, label: 'SYSTEM_STATUS.md', title: 'Integrated System Status (Phase 5)' },
     { id: 'status' as const, label: 'PROJECT_STATUS.md', title: 'Live Project Status & Milestones' },
     { id: 'arch' as const, label: 'ARCHITECTURE.md', title: 'OpenVintage Architectural Specification' },
     { id: 'readme' as const, label: 'README.md', title: 'Master Project Overview' },
@@ -25,6 +28,8 @@ export const DocViewer: React.FC<DocViewerProps> = ({
 
   const getContent = () => {
     switch (selectedDoc) {
+      case 'system':
+        return systemStatusContent || statusContent;
       case 'status':
         return statusContent;
       case 'arch':

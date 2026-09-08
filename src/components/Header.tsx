@@ -37,10 +37,10 @@ export const Header: React.FC<HeaderProps> = ({
                 <h1 className="text-xl font-bold tracking-tight text-white font-mono">OPENVINTAGE</h1>
                 <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-emerald-950 text-emerald-300 border border-emerald-800">
                   <ShieldCheck className="w-3 h-3 mr-1 text-emerald-400" />
-                  Phase 1 Verified
+                  Phase 5 Integrated &amp; Verified
                 </span>
                 <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-950 text-amber-300 border border-amber-800">
-                  Phase 2 Active
+                  32 Architectural Tests
                 </span>
               </div>
               <p className="text-xs text-neutral-400">

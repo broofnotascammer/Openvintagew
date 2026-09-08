@@ -13,6 +13,7 @@ import { Phase1View } from './components/Phase1View';
 import { DocViewer } from './components/DocViewer';
 import { PerformanceProfile } from './types';
 import {
+  SYSTEM_STATUS_TEXT,
   PROJECT_STATUS_TEXT,
   ARCHITECTURE_TEXT,
   README_TEXT,
@@ -45,6 +46,7 @@ export default function App() {
         {activeTab === 'phase1' && <Phase1View />}
         {activeTab === 'docs' && (
           <DocViewer
+            systemStatusContent={SYSTEM_STATUS_TEXT}
             statusContent={PROJECT_STATUS_TEXT}
             archContent={ARCHITECTURE_TEXT}
             readmeContent={README_TEXT}
@@ -56,12 +58,12 @@ export default function App() {
       <footer className="border-t border-neutral-900 py-4 bg-neutral-950/80 text-xs text-neutral-500">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row justify-between items-center gap-2 font-mono">
           <div>
-            OpenVintage Platform Ecosystem &middot; Systems Implementation AI &middot; Revision 2.0
+            OpenVintage Platform Ecosystem &middot; Systems Implementation AI &middot; Revision 2.1.0
           </div>
           <div className="flex items-center space-x-3 text-neutral-400">
-            <span>Phase 1: Verified (EDK II/QEMU)</span>
+            <span>Phases 1-4: Verified</span>
             <span>&middot;</span>
-            <span className="text-amber-400">Phase 2: Active</span>
+            <span className="text-emerald-400">Phase 5: Integrated &amp; Verified (32 Tests Pass)</span>
           </div>
         </div>
       </footer>

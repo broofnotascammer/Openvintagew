@@ -29,6 +29,12 @@
 #include <Library/OvirCpuCacheLib.h>
 #include <Library/OvirCpuJitLib.h>
 #include <Library/OvirCpuSchedulerLib.h>
+#include <Library/OvPerfSystemLib.h>
+#include <Library/OvResourceManagerLib.h>
+#include <Library/OvUnifiedCacheLib.h>
+#include <Library/OvCompatibilityLib.h>
+#include <Library/OvDiagnosticsLib.h>
+#include <Library/OvBenchmarkLib.h>
 
 STATIC UINTN  mTestsRun    = 0;
 STATIC UINTN  mTestsPassed = 0;
@@ -1015,6 +1021,217 @@ UefiMain (
   RecordTestResult (
     L"OVIR-CPU: Workload Scheduling Integration (Dynamic Core Allocation & Priorities)",
     (SchedScheduleOk && SchedDispatchOk && SchedStatsOk)
+    );
+
+  // -------------------------------------------------------------
+  // TEST 25: Phase 5 Unified Resolver Integration
+  // -------------------------------------------------------------
+  OV_INTEGRATED_WORKLOAD_REQUEST  IntReq;
+  OV_INTEGRATED_RESOLUTION_RESULT IntRes;
+  BOOLEAN                         ResolverIntOk = FALSE;
+
+  ZeroMem (&IntReq, sizeof (OV_INTEGRATED_WORKLOAD_REQUEST));
+  StrCpyS (IntReq.ApplicationName, sizeof (IntReq.ApplicationName) / sizeof (CHAR16), L"Integrated3DGame");
+  IntReq.GuestCpuArch        = 1; // ARM64
+  IntReq.RequestedApi        = 1; // Metal 2
+  IntReq.ApiVersionMajor     = 2;
+  IntReq.ApiVersionMinor     = 0;
+  IntReq.RequiresCompute     = TRUE;
+  IntReq.MaxTextureDimension = 8192;
+  IntReq.RequiredVramBytes   = 256 * 1024 * 1024;
+  IntReq.RequiredRamBytes    = 2ULL * 1024ULL * 1024ULL * 1024ULL;
+  IntReq.RequiredCpuCores    = 4;
+  IntReq.GuestCodeHash       = 0xABCD1234;
+
+  Status = OvResolverEvaluateIntegrated (&IntReq, &IntRes);
+  if (!EFI_ERROR (Status) &&
+      (IntRes.Decision == OvResolutionTranslated || IntRes.Decision == OvResolutionSimplified || IntRes.Decision == OvResolutionFallback) &&
+      IntRes.CpuTranslationRequired &&
+      IntRes.AllocatedVramQuota > 0 &&
+      IntRes.PerformanceCostFactor >= 100) {
+    ResolverIntOk = TRUE;
+  }
+
+  RecordTestResult (
+    L"PHASE 5: Unified Resolver Integration (Multi-Arch, GPU, API & Resource Decision)",
+    ResolverIntOk
+    );
+
+  // -------------------------------------------------------------
+  // TEST 26: Measurable Performance Telemetry Management
+  // -------------------------------------------------------------
+  OV_PERF_SNAPSHOT PerfSnap;
+  BOOLEAN          PerfSysOk = FALSE;
+
+  OvPerfSystemInitialize ();
+  OvPerfSystemRecordCpuMetric (45, 4);
+  OvPerfSystemRecordMemoryMetric (256 * 1024 * 1024, 384 * 1024 * 1024);
+  OvPerfSystemRecordGpuMetric (128 * 1024 * 1024, 1420, 65536);
+  OvPerfSystemRecordTranslationMetric (4500, 15);
+  OvPerfSystemRecordShaderMetric (12000, 42);
+  OvPerfSystemRecordCacheMetric (180, 20);
+  OvPerfSystemRecordFrameTiming (16666);
+
+  Status = OvPerfSystemGetSnapshot (&PerfSnap);
+  if (!EFI_ERROR (Status) &&
+      PerfSnap.CpuLoadPercent == 45 &&
+      PerfSnap.CpuActiveCores == 4 &&
+      PerfSnap.MemoryAllocatedBytes == (256 * 1024 * 1024) &&
+      PerfSnap.CacheHitRatePercent == 90 &&
+      PerfSnap.FrameTimeCurrentUs == 16666) {
+    PerfSysOk = TRUE;
+  }
+
+  RecordTestResult (
+    L"PHASE 5: Performance Subsystem (CPU, GPU, Memory, Translation & Frame Timing Metrics)",
+    PerfSysOk
+    );
+
+  // -------------------------------------------------------------
+  // TEST 27: Resource Management & Hardware-Grounded Profiles
+  // -------------------------------------------------------------
+  OV_PLATFORM_RESOURCE_CAPS Caps;
+  OV_RESOURCE_DESCRIPTOR    AllocDesc;
+  OV_RESOURCE_STATUS        ResStatus;
+  OV_RESOURCE_PROFILE       CurrentProf;
+  BOOLEAN                   ResMgrOk = FALSE;
+
+  OvResourceManagerInitialize ();
+  Status = OvResourceManagerGetCaps (&Caps);
+  if (!EFI_ERROR (Status) && Caps.MaxSupportedWorkerThreads > 0) {
+    Status = OvResourceManagerSetProfile (OvResourceProfilePerformance);
+    if (!EFI_ERROR (Status)) {
+      OvResourceManagerGetProfile (&CurrentProf);
+      if (CurrentProf == OvResourceProfilePerformance) {
+        Status = OvResourceManagerAllocate (64 * 1024 * 1024, OvPriorityHigh, &AllocDesc);
+        if (!EFI_ERROR (Status) && AllocDesc.MemoryQuotaBytes == (64 * 1024 * 1024)) {
+          OvResourceManagerGetStatus (&ResStatus);
+          if (ResStatus.CommittedMemoryBytes >= (64 * 1024 * 1024) && ResStatus.ActiveTasksCount >= 1) {
+            OvResourceManagerRelease (&AllocDesc);
+            OvResourceManagerGetStatus (&ResStatus);
+            if (ResStatus.ActiveTasksCount == 0) {
+              ResMgrOk = TRUE;
+            }
+          }
+        }
+      }
+    }
+  }
+
+  RecordTestResult (
+    L"PHASE 5: Resource Management & Platform Profiles (Balanced, Perf, Max, Battery)",
+    ResMgrOk
+    );
+
+  // -------------------------------------------------------------
+  // TEST 28: Unified Cache Subsystem (Multi-Tier Integration)
+  // -------------------------------------------------------------
+  OV_UNIFIED_CACHE_STATS CacheStats;
+  BOOLEAN                UnifiedCacheOk = FALSE;
+
+  OvUnifiedCacheInitialize ();
+  Status = OvUnifiedCacheGetStats (&CacheStats);
+  if (!EFI_ERROR (Status) &&
+      CacheStats.TotalQueries > 0 &&
+      CacheStats.TotalHits > 0 &&
+      CacheStats.OverallHitRatePercent > 50 &&
+      CacheStats.CurrentGeneration >= 1) {
+    UnifiedCacheOk = TRUE;
+  }
+
+  RecordTestResult (
+    L"PHASE 5: Unified Cache Subsystem (CPU, Shader, Pipeline & Compatibility Integration)",
+    UnifiedCacheOk
+    );
+
+  // -------------------------------------------------------------
+  // TEST 29: Cache Invalidation Reliability & Generation Counter
+  // -------------------------------------------------------------
+  UINT32  GenBefore;
+  UINT32  GenAfter;
+  BOOLEAN InvalidateOk = FALSE;
+
+  GenBefore = OvUnifiedCacheGetGeneration ();
+  Status = OvUnifiedCacheInvalidate (OvCacheTierShader, OvInvalidateReasonMemoryPressure);
+  GenAfter = OvUnifiedCacheGetGeneration ();
+
+  if (!EFI_ERROR (Status) && (GenAfter == GenBefore + 1)) {
+    Status = OvUnifiedCacheVerifyIntegrity ();
+    if (!EFI_ERROR (Status)) {
+      InvalidateOk = TRUE;
+    }
+  }
+
+  RecordTestResult (
+    L"PHASE 5: Cache Invalidation Reliability (Version, Generation & Integrity Verification)",
+    InvalidateOk
+    );
+
+  // -------------------------------------------------------------
+  // TEST 30: Compatibility Framework (Hardware Constraints & Quirks)
+  // -------------------------------------------------------------
+  OV_COMPAT_RECORD     FoundApp;
+  OV_COMPAT_EVALUATION CompatEval;
+  BOOLEAN              CompatSysOk = FALSE;
+
+  OvCompatibilityInitialize ();
+  if (OvCompatibilityGetKnownAppCount () >= 4) {
+    Status = OvCompatibilityLookupApp (L"VintageCAD3D", &FoundApp);
+    if (!EFI_ERROR (Status)) {
+      Status = OvCompatibilityEvaluateAgainstHardware (&FoundApp, &CompatEval);
+      if (!EFI_ERROR (Status) && CompatEval.CanExecute && CompatEval.SelectedMode != 0) {
+        CompatSysOk = TRUE;
+      }
+    }
+  }
+
+  RecordTestResult (
+    L"PHASE 5: Compatibility Framework (Application Requirements & Hardware Constraints)",
+    CompatSysOk
+    );
+
+  // -------------------------------------------------------------
+  // TEST 31: Unified System Diagnostics & Report Generation
+  // -------------------------------------------------------------
+  OV_DIAGNOSTIC_REPORT DiagReport;
+  BOOLEAN              DiagnosticsOk = FALSE;
+
+  OvDiagnosticsInitialize ();
+  Status = OvDiagnosticsGenerateReport (&DiagReport);
+  if (!EFI_ERROR (Status) &&
+      DiagReport.PhysicalCores > 0 &&
+      DiagReport.FirmwareRevision == 0x00050000 &&
+      DiagReport.CacheGeneration >= 1 &&
+      DiagReport.TscFrequencyHz > 0) {
+    DiagnosticsOk = TRUE;
+    OvDiagnosticsPrintReport (&DiagReport);
+  }
+
+  RecordTestResult (
+    L"PHASE 5: Unified Diagnostics (Hardware, CPU, GPU, APIs, Cache & Quirk Auditing)",
+    DiagnosticsOk
+    );
+
+  // -------------------------------------------------------------
+  // TEST 32: Reproducible Benchmarking Framework (Baseline vs OpenVintage)
+  // -------------------------------------------------------------
+  OV_BENCHMARK_RESULTS BenchResults;
+  BOOLEAN              BenchmarkOk = FALSE;
+
+  OvBenchmarkInitialize ();
+  Status = OvBenchmarkRunSuite (&BenchResults);
+  if (!EFI_ERROR (Status) &&
+      BenchResults.TotalBaselineCycles > 0 &&
+      BenchResults.TotalOptimizedCycles > 0 &&
+      BenchResults.OverallSpeedupPercent >= 100 &&
+      BenchResults.TotalCyclesSaved > 0) {
+    BenchmarkOk = TRUE;
+    OvBenchmarkPrintSummary (&BenchResults);
+  }
+
+  RecordTestResult (
+    L"PHASE 5: Reproducible Benchmark Suite (Empirical TSC Baseline vs Optimized Path)",
+    BenchmarkOk
     );
 
   // Dump Full Diagnostic Status

@@ -368,7 +368,77 @@ OpenVintage CPU translation strictly isolates instruction decoding into independ
 
 ---
 
-## 7. QEMU Virtualized Test Architecture
+## 7. Phase 5: OpenVintage Integration & Optimization Architecture
+
+### 7.1 Final Execution Pipeline
+OpenVintage integrates all firmware, translation, scheduling, and caching components into a deterministic evaluation pipeline:
+
+```
+OpenVintage Boot/Firmware
+        ↓
+OpenVintage Core
+        ↓
+Hardware Detection (HAL)
+        ↓
+OVResolver (Integrated Engine)
+        ↓
+┌───────────────┬────────────────┐
+│               │                │
+OVIR-CPU       OVIR-GPU       OVScheduler
+│               │                │
+CPU Backend    GPU Backend    Resource Management
+└───────────────┴────────────────┘
+        ↓
+Application / Game Workload
+```
+
+### 7.2 Integrated Resolver (`OvResolverLib`)
+The integrated resolver evaluates multi-dimensional platform constraints:
+- **Input Parameters**: Guest CPU architecture, target OS bitness, requested graphics API & version, compute shader requirement, max texture dimensions, RAM & VRAM requirements, and code hash.
+- **Coordination Logic**: Synthesizes CPU translation necessity (e.g. ARM64 to x86-64), GPU translation necessity (e.g. Metal 2 to OpenGL 3.3 Core), feature clamping (e.g. 8192px textures clamped to 4096px on Intel HD 4000), compute fallback (software compute via CPU when hardware lacks compute shaders), and resource quotas.
+- **Output Plan**: Generates concrete execution routes (`Native`, `Translated`, `Simplified`, `Fallback`) and assigns performance cost factors.
+
+### 7.3 Performance Subsystem (`OvPerfSystemLib`)
+- **Metric Collection**: Telemetry capture for CPU load %, active cores, tagged memory bytes, active allocation counts, VRAM usage, draw calls, vertex counts, translation overhead (microseconds), shader compilation duration, cache hit rates, and frame time (microseconds).
+- **Snapshot Extraction**: Provides consistent performance state snapshots for real-time monitoring and scheduler feedback.
+
+### 7.4 Dynamic Resource Management (`OvResourceManagerLib`)
+- **Platform Capability Profiles**:
+  - `Balanced`: Standard profile balancing responsiveness and power.
+  - `Performance`: Unlocks higher core pools and memory quotas for intensive workloads.
+  - `MaxPerformance`: Maximum thread pools and VRAM allocations; strictly gated by platform capability checks (requires multi-core hardware).
+  - `BatteryLowPower`: Restricts background threads and tightens memory allocations for battery conservation.
+- **Constraint Enforcement**: Prevents invalid configurations; rejects requests exceeding physical memory or core limits.
+
+### 7.5 Unified Multi-Tier Cache (`OvUnifiedCacheLib`)
+- **Cache Tiers**:
+  1. `CpuTranslation`: JIT compiled machine code blocks.
+  2. `Shader`: SPIR-V and GLSL compiled shader binaries.
+  3. `Pipeline`: Pipeline State Objects (PSO) descriptors.
+  4. `Compatibility`: Application resolution plans and silicon quirk evaluations.
+- **Reliable Invalidation**:
+  - Generation-tracked invalidation (`CurrentGeneration`).
+  - Selective or global invalidation triggered by hardware configuration change, version upgrade, or memory pressure.
+  - Integrity verification ensuring cache consistency before execution.
+
+### 7.6 Compatibility Framework (`OvCompatibilityLib`)
+- **Grounded Verification**: Records concrete application requirements and maps them to hardware limits without synthetic or exaggerated claims.
+- **Quirk & Limitation Database**: Accounts for real silicon limitations (e.g., Intel Ivy Bridge Gen7 lacking Vulkan 1.2, requiring 4096px texture clamping and compute shader software fallback).
+
+### 7.7 Unified Diagnostics (`OvDiagnosticsLib`)
+- Comprehensive diagnostic reports auditing firmware revision, CPU model and instruction sets, GPU capabilities and VRAM, tagged memory allocations and leaks, supported graphics APIs, translation layer availability, cache generations, and active resolver policies.
+
+### 7.8 Reproducible Empirical Benchmarking (`OvBenchmarkLib`)
+- Uses physical hardware Time Stamp Counter (`AsmReadTsc`) to measure real cycle counts.
+- Evaluates baseline vs OpenVintage optimized paths across:
+  1. Arithmetic constant folding.
+  2. Dead code & redundant move elimination.
+  3. Translation cache lookup vs cold compilation.
+  4. End-to-end JIT pipeline compilation.
+
+---
+
+## 8. QEMU Virtualized Test Architecture
 
 Testing is executed in an automated, headless virtual machine environment:
 - **Host Test Harness**: `scripts/test_qemu.sh`
@@ -378,5 +448,6 @@ Testing is executed in an automated, headless virtual machine environment:
 - **Telemetry Channel**: ISA debugcon / Serial port redirection to file
 - **Verification Suites**:
   1. `OpenVintageBootApp.efi`: Bootloader initialization, hardware discovery, and module state verification.
-  2. `OvSelfTestApp.efi`: 24 comprehensive architectural tests covering core subsystems, OVIR-GPU components, and OVIR-CPU subsystems.
+  2. `OvSelfTestApp.efi`: 32 comprehensive architectural tests covering core subsystems, OVIR-GPU components, OVIR-CPU subsystems, and Phase 5 integrated features.
 - **Pass Rule**: Both apps return `EFI_SUCCESS` and output `ALL OPENVINTAGE ARCHITECTURAL TESTS PASSED!`.
+

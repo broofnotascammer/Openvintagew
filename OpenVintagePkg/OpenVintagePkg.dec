@@ -73,6 +73,45 @@
   ## @libraryclass  Graphics Workload Resolver Bridge
   OvirResolverLib|Include/Library/OvirResolverLib.h
 
+  ## @libraryclass  CPU Intermediate Representation Core
+  OvirCpuLib|Include/Library/OvirCpuLib.h
+
+  ## @libraryclass  Multi-Architecture Instruction Decoders (ARM64, x86)
+  OvirCpuDecoderLib|Include/Library/OvirCpuDecoderLib.h
+
+  ## @libraryclass  CPU IR Non-Speculative Optimizer Passes
+  OvirCpuOptimizerLib|Include/Library/OvirCpuOptimizerLib.h
+
+  ## @libraryclass  Target Native Machine Code Generators
+  OvirCpuBackendLib|Include/Library/OvirCpuBackendLib.h
+
+  ## @libraryclass  Translation Block Cache & Version Management
+  OvirCpuCacheLib|Include/Library/OvirCpuCacheLib.h
+
+  ## @libraryclass  Dynamic Just-In-Time Compilation Pipeline
+  OvirCpuJitLib|Include/Library/OvirCpuJitLib.h
+
+  ## @libraryclass  CPU Scheduler Integration Bridge
+  OvirCpuSchedulerLib|Include/Library/OvirCpuSchedulerLib.h
+
+  ## @libraryclass  Phase 5 Measurable Performance Management
+  OvPerfSystemLib|Include/Library/OvPerfSystemLib.h
+
+  ## @libraryclass  Phase 5 Dynamic Resource Allocation & Platform Constraints
+  OvResourceManagerLib|Include/Library/OvResourceManagerLib.h
+
+  ## @libraryclass  Phase 5 Unified Multi-Tier Cache & Invalidation
+  OvUnifiedCacheLib|Include/Library/OvUnifiedCacheLib.h
+
+  ## @libraryclass  Phase 5 Compatibility Matrix & Silicon Quirks
+  OvCompatibilityLib|Include/Library/OvCompatibilityLib.h
+
+  ## @libraryclass  Phase 5 Unified Diagnostics & Telemetry Auditing
+  OvDiagnosticsLib|Include/Library/OvDiagnosticsLib.h
+
+  ## @libraryclass  Phase 5 Reproducible Empirical Benchmarking
+  OvBenchmarkLib|Include/Library/OvBenchmarkLib.h
+
 [Guids]
   gOpenVintagePkgTokenSpaceGuid  = { 0x3F58A74E, 0x2914, 0x40DF, { 0x88, 0x31, 0x81, 0x17, 0x72, 0x6F, 0x9C, 0x32 } }
 
