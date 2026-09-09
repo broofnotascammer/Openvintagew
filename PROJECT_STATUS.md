@@ -52,6 +52,7 @@ Firmware Release: v0.5.0-Phase-5 (Full System Integration & Optimization)
 | **HAL DXE Driver** | `OpenVintagePkg/Drivers/OpenVintageHalDxe/` | Built | `OpenVintageHalDxe.efi` (~8.2 KB) |
 | **Boot Application Binary** | `bin/OpenVintageBootApp.efi` | Built | PE32+ x86-64 Executable (~48 KB) |
 | **Self-Test Diagnostic Suite**| `bin/OvSelfTestApp.efi` | Built | PE32+ x86-64 Executable (~380 KB) |
+| **Pre-Boot Architecture Simulator** | `OpenVintagePrebootSimulator/bin/openvintage-preboot-simulator` | Built & Tested | GTK4 GUI + CLI Multi-Phase Architecture Simulator |
 | **Flash Device Image** | `bin/OPENVINTAGE.fd` | Generated | 4.0 MB Flash ROM Image |
 | **Firmware Volume** | `OpenVintagePkg/Firmware/OPENVINTAGE_DXEFV.Fv`| Generated | 4.0 MB PI Firmware Volume |
 | **Automated Build Script** | `scripts/build_firmware.sh` | Operational | Builds and populates all binaries |

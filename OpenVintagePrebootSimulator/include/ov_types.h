@@ -25,6 +25,8 @@ typedef enum {
     OV_ERROR_INTEGRITY = 9
 } ov_status_t;
 
+const char* ov_status_to_string(ov_status_t status);
+
 /* CPU Architectures */
 typedef enum {
     OV_CPU_INTEL_IVY_BRIDGE = 0,   /* Gen7 host (e.g. Core i7-3770, SSE4.2, AVX) */

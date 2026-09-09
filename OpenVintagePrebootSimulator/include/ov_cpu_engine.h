@@ -53,7 +53,7 @@ typedef struct {
 /* Instruction */
 typedef struct {
     ov_cpu_opcode_t  opcode;
-    uint8_t          bit_width;      /* 32, 64, 128, 256 */
+    uint16_t         bit_width;      /* 32, 64, 128, 256 */
     bool             set_flags;
     ov_cpu_operand_t dst;
     ov_cpu_operand_t src1;

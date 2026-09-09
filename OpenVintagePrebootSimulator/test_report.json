@@ -1,0 +1,29 @@
+{
+  "openvintage": {
+    "health_score": 95,
+    "platform": "OpenVintage EFI Platform",
+    "firmware": "OpenVintage Systems / EDK2",
+    "policy": "OVIR Adaptive Hybrid Routing (Phase 5)",
+    "cpu": {
+      "model": "Intel(R) Core(TM) i7-3770 CPU @ 3.40GHz",
+      "cores": 4,
+      "threads": 8,
+      "base_clock_mhz": 3400,
+      "sse42": true,
+      "avx": true,
+      "avx2": false
+    },
+    "gpu": {
+      "model": "Intel(R) HD Graphics 4000 (Gen7 GT2)",
+      "pci_id": "0x8086:0x0166",
+      "vram_bytes": 1610612736,
+      "max_texture": 8192,
+      "compute": true
+    },
+    "cache": {
+      "generation": 1,
+      "entries": 178,
+      "hit_rate_pct": 94
+    }
+  }
+}

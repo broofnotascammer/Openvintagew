@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>OpenVintage Pre-Boot Diagnostic Report</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0f172a; color: #f8fafc; margin: 0; padding: 24px; }
+    .container { max-width: 960px; margin: 0 auto; }
+    .card { background: #1e293b; border-radius: 12px; padding: 20px; margin-bottom: 20px; border: 1px solid #334155; }
+    h1 { color: #38bdf8; margin-top: 0; font-size: 24px; }
+    h2 { color: #94a3b8; font-size: 16px; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid #334155; padding-bottom: 8px; margin-top: 0; }
+    .score-box { display: inline-block; background: #0369a1; padding: 6px 16px; border-radius: 20px; font-weight: bold; font-size: 18px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
+    .prop { margin-bottom: 8px; font-size: 14px; }
+    .label { color: #94a3b8; }
+    .val { font-weight: 600; color: #f1f5f9; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="card">
+      <h1>OpenVintage Pre-Boot Diagnostic Audit</h1>
+      <div class="score-box">Health Score: 95 / 100</div>
+      <p style="color:#cbd5e1; margin-top:12px;">Platform: OpenVintage EFI Platform | OpenVintage Systems / EDK2</p>
+    </div>
+    <div class="grid">
+      <div class="card">
+        <h2>Processor (CPU)</h2>
+        <div class="prop"><span class="label">Model:</span> <span class="val">Intel(R) Core(TM) i7-3770 CPU @ 3.40GHz</span></div>
+        <div class="prop"><span class="label">Topology:</span> <span class="val">4 Cores / 8 Threads</span></div>
+        <div class="prop"><span class="label">AVX / AVX2:</span> <span class="val">Yes / No</span></div>
+        <div class="prop"><span class="label">ARM64 JIT:</span> <span class="val">Supported</span></div>
+      </div>
+      <div class="card">
+        <h2>Graphics (GPU)</h2>
+        <div class="prop"><span class="label">Model:</span> <span class="val">Intel(R) HD Graphics 4000 (Gen7 GT2)</span></div>
+        <div class="prop"><span class="label">VRAM:</span> <span class="val">1536 MB</span></div>
+        <div class="prop"><span class="label">Max Texture:</span> <span class="val">8192px</span></div>
+        <div class="prop"><span class="label">API Status:</span> <span class="val">OpenGL 4.0 Core [Native], Vulkan [OVIR-GPU Trans], Metal [OVIR-GPU Trans]</span></div>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Unified Cache & Quirks</h2>
+      <div class="prop"><span class="label">Generation:</span> <span class="val">Gen 1</span></div>
+      <div class="prop"><span class="label">Cache Hit Rate:</span> <span class="val">94%</span></div>
+      <div class="prop"><span class="label">Active Quirks:</span> <span class="val">Gen7 texture clamp 8192 active; AVX2 emulated via SSE4.2; Gen7 sampler Y-inversion active.</span></div>
+    </div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,34 @@
+================================================================================
+                  OPENVINTAGE PRE-BOOT SYSTEM DIAGNOSTIC REPORT                 
+================================================================================
+
+System Health Score: 95 / 100 [OPTIMAL]
+Platform:            OpenVintage EFI Platform (OpenVintage Systems / EDK2, Rev 0x00010005)
+Execution Policy:    OVIR Adaptive Hybrid Routing (Phase 5)
+
+[PROCESSOR (CPU)]
+Model:               Intel(R) Core(TM) i7-3770 CPU @ 3.40GHz
+Topology:            4 Physical Cores / 8 Logical Threads @ 3400 MHz
+ISA Extensions:      SSE4.2: YES | AVX: YES | AVX2: NO | AES-NI: YES
+Translation Support: ARM64->x86_64 JIT: YES | x86 Recompilation: YES
+
+[GRAPHICS ACCELERATOR (GPU)]
+Model:               Intel(R) HD Graphics 4000 (Gen7 GT2) (PCI 0x8086:0x0166)
+Dedicated Memory:    1536 MB VRAM | Max Texture: 8192px
+Hardware Features:   Compute: YES | Tessellation: NO
+API Capabilities:    OpenGL 4.0 Core [Native], Vulkan [OVIR-GPU Trans], Metal [OVIR-GPU Trans]
+
+[SYSTEM MEMORY]
+Total Physical RAM:  16384 MB
+Available Free RAM:  14336 MB
+Simulator Pool Peak: 0 KB
+Integrity / Leaks:   CLEAN (0 Leaks)
+
+[UNIFIED MULTI-TIER CACHE]
+Generation:          1
+Active Entries:      178 entries (18432 KB total)
+Global Hit Rate:     94%
+
+[ACTIVE SILICON QUIRKS & WORKAROUNDS]
+Gen7 texture clamp 8192 active; AVX2 emulated via SSE4.2; Gen7 sampler Y-inversion active.
+================================================================================

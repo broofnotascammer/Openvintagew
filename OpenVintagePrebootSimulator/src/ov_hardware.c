@@ -158,7 +158,7 @@ ov_status_t ov_hardware_detect_gpu(ov_gpu_info_t *gpu_info) {
     gpu_info->supports_metal = false;
     strcpy(gpu_info->driver_version, "OpenVintage Gen7 Mesa 22.0-ov");
 
-    FILE *pci_file = popen("lspci -nn | grep -E 'VGA|3D|Display'", "r");
+    FILE *pci_file = popen("lspci -nn 2>/dev/null | grep -E 'VGA|3D|Display'", "r");
     if (pci_file) {
         char line[512];
         if (fgets(line, sizeof(line), pci_file)) {
@@ -598,12 +598,16 @@ const ov_memory_info_t* ov_hardware_get_memory(void) {
 ov_status_t ov_hardware_init(void) {
     ov_log_info("Initializing hardware detection subsystem...");
     
-    pci_access = pci_alloc();
-    if (pci_access) {
-        pci_init(pci_access);
-        ov_log_info("PCI access initialized via libpci");
+    bool has_pci_bus = (access("/sys/bus/pci", F_OK) == 0 || access("/proc/bus/pci", F_OK) == 0);
+    if (has_pci_bus) {
+        pci_access = pci_alloc();
+        if (pci_access) {
+            pci_init(pci_access);
+            ov_log_info("PCI access initialized via libpci");
+        }
     } else {
-        ov_log_warn("Failed to allocate PCI access, using fallback PCI discovery");
+        ov_log_info("Host raw PCI bus not present in environment; using simulated OpenVintage PCI bus architecture");
+        pci_access = NULL;
     }
 
     /* Detect host hardware once */
