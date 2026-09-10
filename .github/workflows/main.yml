@@ -1,4 +1,4 @@
-```yaml
+```yaml^
 name: OpenVintage macOS Intel Build & Test
 
 on:
