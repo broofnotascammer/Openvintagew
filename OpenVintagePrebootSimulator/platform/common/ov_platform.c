@@ -6,6 +6,10 @@
 #include "ov_logger.h"
 #include <string.h>
 
+#if defined(__APPLE__)
+#include "../macos/ov_macos_native.h"
+#endif
+
 ov_platform_type_t ov_platform_get_current(void) {
 #if defined(__APPLE__)
     return OV_PLATFORM_MACOS;
