@@ -1,0 +1,73 @@
+# OpenVintage Pre-Boot Architecture Simulator - Native macOS Makefile
+# Supports macOS Catalina (10.15) through modern macOS (Big Sur, Monterey, Ventura, Sonoma, Sequoia)
+# First-class targets: macos, macos-intel, macos-arm64, macos-universal
+
+CC ?= clang
+SYSROOT ?= $(shell xcrun --show-sdk-path 2>/dev/null || echo "")
+
+CFLAGS_BASE = -Wall -Wextra -O2 -g -I../../include -I../common -I.
+MACOS_FRAMEWORKS = -framework CoreFoundation -framework IOKit -framework Metal -framework OpenGL
+LDFLAGS_BASE = -lpthread -lm $(MACOS_FRAMEWORKS)
+
+BIN_DIR = ../../bin
+BUILD_DIR = ../../build/macos
+
+SRCS = ../../src/ov_types.c \
+       ../../src/ov_logger.c \
+       ../../src/ov_memory.c \
+       ../../src/ov_hardware.c \
+       ../../src/ov_macos_compat.c \
+       ../../src/ov_resolver.c \
+       ../../src/ov_cpu_engine.c \
+       ../../src/ov_gpu_engine.c \
+       ../../src/ov_resource_manager.c \
+       ../../src/ov_unified_cache.c \
+       ../../src/ov_compatibility.c \
+       ../../src/ov_benchmark.c \
+       ../../src/ov_diagnostics.c \
+       ../../src/ov_core.c \
+       ../../src/ov_ui.c \
+       ../common/ov_platform.c \
+       ov_hardware_macos.c \
+       ../../src/main.c
+
+TARGET_NATIVE = $(BIN_DIR)/openvintage-simulator-macos
+TARGET_INTEL = $(BIN_DIR)/openvintage-simulator-macos-x86_64
+TARGET_ARM64 = $(BIN_DIR)/openvintage-simulator-macos-arm64
+TARGET_UNIVERSAL = $(BIN_DIR)/openvintage-simulator-macos-universal
+
+.PHONY: all macos macos-intel macos-arm64 macos-universal clean check-sdk
+
+all: macos
+
+check-sdk:
+	@if [ -z "$(SYSROOT)" ] && [ "$$(uname -s)" != "Darwin" ]; then \
+		echo "Note: Cross-compiling Darwin binaries requires macOS SDK sysroot or Apple toolchain."; \
+	fi
+
+macos: check-sdk
+	@mkdir -p $(BIN_DIR) $(BUILD_DIR)
+	@echo "[+] Compiling Native macOS OpenVintage Pre-Boot Simulator..."
+	$(CC) $(CFLAGS_BASE) $(SRCS) -o $(TARGET_NATIVE) $(LDFLAGS_BASE)
+	@echo "[+] Native macOS Simulator Build Complete: $(TARGET_NATIVE)"
+
+macos-intel: check-sdk
+	@mkdir -p $(BIN_DIR) $(BUILD_DIR)
+	@echo "[+] Compiling macOS Intel x86_64 Target (Catalina 10.15+)..."
+	$(CC) $(CFLAGS_BASE) -target x86_64-apple-macos10.15 $(SRCS) -o $(TARGET_INTEL) $(LDFLAGS_BASE)
+	@echo "[+] macOS Intel Build Complete: $(TARGET_INTEL)"
+
+macos-arm64: check-sdk
+	@mkdir -p $(BIN_DIR) $(BUILD_DIR)
+	@echo "[+] Compiling macOS Apple Silicon arm64 Target (Big Sur 11.0+)..."
+	$(CC) $(CFLAGS_BASE) -target arm64-apple-macos11.0 $(SRCS) -o $(TARGET_ARM64) $(LDFLAGS_BASE)
+	@echo "[+] macOS Apple Silicon Build Complete: $(TARGET_ARM64)"
+
+macos-universal: macos-intel macos-arm64
+	@echo "[+] Packaging Universal Fat Binary (x86_64 + arm64)..."
+	lipo -create -output $(TARGET_UNIVERSAL) $(TARGET_INTEL) $(TARGET_ARM64)
+	@echo "[+] macOS Universal Fat Binary Complete: $(TARGET_UNIVERSAL)"
+	@file $(TARGET_UNIVERSAL)
+
+clean:
+	rm -rf $(BUILD_DIR) $(TARGET_NATIVE) $(TARGET_INTEL) $(TARGET_ARM64) $(TARGET_UNIVERSAL)

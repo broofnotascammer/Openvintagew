@@ -165,16 +165,91 @@ ov_status_t ov_resolver_bind_hardware(
     return OV_SUCCESS;
 }
 
-ov_status_t ov_resolver_evaluate_integrated(
+ov_status_t ov_resolver_evaluate_with_topology(
     const ov_integrated_request_t *request,
+    const ov_gpu_topology_t       *topo,
     ov_resolution_result_t        *out_result
 ) {
     if (!request || !out_result) return OV_ERROR_INVALID_PARAM;
     memset(out_result, 0, sizeof(ov_resolution_result_t));
 
     const ov_cpu_info_t *cpu = resolver_cpu ? resolver_cpu : ov_hardware_get_cpu();
-    const ov_gpu_info_t *gpu = resolver_gpu ? resolver_gpu : ov_hardware_get_gpu();
     const ov_memory_info_t *mem = resolver_mem ? resolver_mem : ov_hardware_get_memory();
+
+    /* Intelligent GPU Workload Selection across Topology */
+    uint32_t best_gpu_idx = 0;
+    const ov_gpu_info_t *gpu = NULL;
+
+    if (topo && topo->gpu_count > 1) {
+        int best_score = -1000;
+        char selection_reason[128] = {0};
+
+        for (uint32_t i = 0; i < topo->gpu_count; i++) {
+            const ov_gpu_info_t *cand = &topo->gpus[i];
+            int score = 0;
+
+            /* Native API capability score */
+            if (request->requested_api == OV_API_METAL) {
+                if (request->api_version_major >= 2) {
+                    if (cand->supports_metal && cand->metal_level >= OV_METAL_2) score += 150;
+                    else if (cand->supports_metal) score += 30;
+                    else score -= 50;
+                } else if (cand->supports_metal) {
+                    score += 100;
+                }
+            } else if (request->requested_api == OV_API_VULKAN) {
+                if (cand->supports_vulkan) score += 150;
+                else score -= 40;
+            } else if (request->requested_api == OV_API_DIRECTX) {
+                if (cand->supports_directx) score += 100;
+            } else if (request->requested_api == OV_API_OPENGL) {
+                if (cand->supports_opengl_core) score += 80;
+                /* If lightweight OpenGL, favor integrated GPU for zero-dGPU power overhead */
+                if (request->required_vram_bytes <= 512ULL * 1024 * 1024 &&
+                    (cand->type == OV_GPU_INTEL_GEN7_HD4000 || cand->vendor_id == 0x8086)) {
+                    score += 40;
+                }
+            }
+
+            /* VRAM Capacity */
+            if (cand->vram_bytes >= request->required_vram_bytes) score += 50;
+            else score -= 40;
+
+            /* Compute Capability */
+            if (request->requires_compute && cand->supports_compute) score += 40;
+
+            /* Texture resolution support */
+            if (cand->max_texture_dimension >= request->max_texture_dimension) score += 20;
+
+            if (score > best_score) {
+                best_score = score;
+                best_gpu_idx = i;
+            }
+        }
+
+        gpu = &topo->gpus[best_gpu_idx];
+        if (best_gpu_idx == topo->discrete_gpu_index && topo->has_discrete_gpu) {
+            snprintf(selection_reason, sizeof(selection_reason),
+                     "Discrete dGPU chosen for optimal native API/compute throughput (%s)", gpu->model_name);
+        } else {
+            snprintf(selection_reason, sizeof(selection_reason),
+                     "Integrated iGPU chosen for thermal/power efficiency and low overhead (%s)", gpu->model_name);
+        }
+        snprintf(out_result->gpu_selection_reason, sizeof(out_result->gpu_selection_reason), "%s", selection_reason);
+    } else if (topo && topo->gpu_count == 1) {
+        best_gpu_idx = 0;
+        gpu = &topo->gpus[0];
+        snprintf(out_result->gpu_selection_reason, sizeof(out_result->gpu_selection_reason),
+                 "Single GPU available (%s)", gpu->model_name);
+    } else {
+        best_gpu_idx = 0;
+        gpu = resolver_gpu ? resolver_gpu : ov_hardware_get_gpu();
+        snprintf(out_result->gpu_selection_reason, sizeof(out_result->gpu_selection_reason),
+                 "Default active GPU (%s)", gpu->model_name);
+    }
+
+    out_result->selected_gpu_index = best_gpu_idx;
+    snprintf(out_result->selected_gpu_name, sizeof(out_result->selected_gpu_name), "%s", gpu->model_name);
 
     uint32_t cost = 100;
     out_result->decision = OV_RESOLUTION_NATIVE;
@@ -240,7 +315,7 @@ ov_status_t ov_resolver_evaluate_integrated(
             metal_supported = false;
         }
         if (metal_supported) {
-            snprintf(out_result->gpu_path, sizeof(out_result->gpu_path), "Native Metal 2.0 Command Stream");
+            snprintf(out_result->gpu_path, sizeof(out_result->gpu_path), "Native Metal 2.0 Command Stream (%s)", gpu->model_name);
             out_result->gpu_translation_required = false;
         } else {
             snprintf(out_result->gpu_path, sizeof(out_result->gpu_path), "OVIR-GPU Metal -> OpenGL 4.0 Core / Gen7 EU Bytecode");
@@ -268,7 +343,7 @@ ov_status_t ov_resolver_evaluate_integrated(
         }
     } else if (request->requested_api == OV_API_VULKAN) {
         if (gpu->supports_vulkan) {
-            snprintf(out_result->gpu_path, sizeof(out_result->gpu_path), "Native Vulkan 1.2 Pipeline");
+            snprintf(out_result->gpu_path, sizeof(out_result->gpu_path), "Native Vulkan 1.2 Pipeline (%s)", gpu->model_name);
             out_result->gpu_translation_required = false;
         } else {
             snprintf(out_result->gpu_path, sizeof(out_result->gpu_path), "OVIR-GPU SPIR-V -> OpenGL 4.0 GLSL Translation");
@@ -298,7 +373,7 @@ ov_status_t ov_resolver_evaluate_integrated(
         out_result->gpu_translation_required = true;
         cost += 20;
     } else {
-        snprintf(out_result->gpu_path, sizeof(out_result->gpu_path), "Native OpenGL 3.3/4.0 Core Profile");
+        snprintf(out_result->gpu_path, sizeof(out_result->gpu_path), "Native OpenGL 3.3/4.0 Core Profile (%s)", gpu->model_name);
         out_result->gpu_translation_required = false;
     }
 
@@ -346,21 +421,41 @@ ov_status_t ov_resolver_evaluate_integrated(
     } else if (out_result->cpu_translation_required) {
         out_result->decision = OV_RESOLUTION_JIT_TRANSLATED;
         snprintf(out_result->rationale, sizeof(out_result->rationale),
-                 "OVIR-CPU translation active, GPU dispatch native. Overhead ~%u%%.",
-                 cost > 100 ? cost - 100 : 0);
+                 "OVIR-CPU translation active, GPU dispatch native on %s. Overhead ~%u%%.",
+                 gpu->model_name, cost > 100 ? cost - 100 : 0);
     } else if (out_result->gpu_translation_required) {
         out_result->decision = OV_RESOLUTION_JIT_TRANSLATED;
         snprintf(out_result->rationale, sizeof(out_result->rationale),
-                 "GPU translation active (MSL/SPIR-V -> GLSL), CPU direct. Overhead ~%u%%.",
-                 cost > 100 ? cost - 100 : 0);
+                 "GPU translation active (MSL/SPIR-V -> GLSL) on %s, CPU direct. Overhead ~%u%%.",
+                 gpu->model_name, cost > 100 ? cost - 100 : 0);
     } else {
         out_result->decision = OV_RESOLUTION_NATIVE;
         snprintf(out_result->rationale, sizeof(out_result->rationale),
-                 "Native execution path matched on current silicon (%s + %s).",
+                 "Native execution path matched on silicon (%s + %s).",
                  cpu->model_name, gpu->model_name);
     }
 
     return OV_SUCCESS;
+}
+
+ov_status_t ov_resolver_evaluate_integrated(
+    const ov_integrated_request_t *request,
+    ov_resolution_result_t        *out_result
+) {
+    if (!request || !out_result) return OV_ERROR_INVALID_PARAM;
+
+    if (resolver_gpu != NULL) {
+        /* Bound to specific GPU target */
+        ov_gpu_topology_t bound_topo;
+        memset(&bound_topo, 0, sizeof(bound_topo));
+        bound_topo.gpu_count = 1;
+        bound_topo.gpus[0] = *resolver_gpu;
+        bound_topo.primary_gpu_index = 0;
+        return ov_resolver_evaluate_with_topology(request, &bound_topo, out_result);
+    }
+
+    /* Otherwise, dynamically evaluate against active hardware GPU topology */
+    return ov_resolver_evaluate_with_topology(request, ov_hardware_get_gpu_topology(), out_result);
 }
 
 /* Phase 2 legacy route helper */

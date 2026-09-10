@@ -40,6 +40,9 @@ typedef struct {
     bool                        software_fallback_used;
     uint64_t                    allocated_vram_quota;
     uint64_t                    allocated_ram_quota;
+    uint32_t                    selected_gpu_index;       /* 0 = Integrated/Primary, 1 = Discrete/Secondary */
+    char                        selected_gpu_name[128];   /* Selected GPU adapter name */
+    char                        gpu_selection_reason[128];/* Why this GPU was chosen over others */
     char                        cpu_path[128];
     char                        gpu_path[128];
     char                        routing_path[256];
@@ -63,6 +66,12 @@ void        ov_resolver_cleanup(void);
 
 ov_status_t ov_resolver_evaluate_integrated(
     const ov_integrated_request_t *request,
+    ov_resolution_result_t        *out_result
+);
+
+ov_status_t ov_resolver_evaluate_with_topology(
+    const ov_integrated_request_t *request,
+    const ov_gpu_topology_t       *topo,
     ov_resolution_result_t        *out_result
 );
 

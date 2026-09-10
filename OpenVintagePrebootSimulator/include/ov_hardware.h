@@ -109,6 +109,20 @@ typedef struct {
     char                driver_version[64];
 } ov_gpu_info_t;
 
+#define OV_MAX_GPUS 4
+
+/* Multi-GPU Topology Snapshot */
+typedef struct {
+    uint32_t            gpu_count;
+    ov_gpu_info_t       gpus[OV_MAX_GPUS];
+    uint32_t            primary_gpu_index;     /* Index 0: typically integrated */
+    uint32_t            discrete_gpu_index;    /* Index of discrete GPU if present */
+    bool                has_integrated_gpu;
+    bool                has_discrete_gpu;
+    bool                is_muxed_switchable;   /* e.g. Apple GMUX on MacBookPro9,1 */
+    char                switch_policy[64];     /* e.g. "Apple GMUX Hardware Multiplexed" */
+} ov_gpu_topology_t;
+
 /* System Memory State */
 typedef struct {
     uint64_t        total_bytes;
@@ -154,6 +168,9 @@ typedef struct {
     bool                has_discrete_gpu;
     bool                is_switchable_graphics;
     ov_gpu_info_t       secondary_gpu;
+
+    /* Multi-GPU Topology */
+    ov_gpu_topology_t   gpu_topology;
 
     /* Memory */
     ov_memory_info_t    mem;
@@ -203,10 +220,17 @@ const ov_hardware_profile_t* ov_hardware_get_active_profile(void);
 ov_status_t ov_hardware_update_custom_profile(const ov_hardware_profile_t *custom);
 
 /* Query Active Hardware */
-const ov_cpu_info_t*    ov_hardware_get_cpu(void);
-const ov_gpu_info_t*    ov_hardware_get_gpu(void);
-const ov_gpu_info_t*    ov_hardware_get_secondary_gpu(void);
-const ov_memory_info_t* ov_hardware_get_memory(void);
+const ov_cpu_info_t*     ov_hardware_get_cpu(void);
+const ov_gpu_info_t*     ov_hardware_get_gpu(void);
+const ov_gpu_info_t*     ov_hardware_get_secondary_gpu(void);
+uint32_t                 ov_hardware_get_gpu_count(void);
+const ov_gpu_info_t*     ov_hardware_get_gpu_at(uint32_t index);
+const ov_gpu_topology_t* ov_hardware_get_gpu_topology(void);
+const ov_memory_info_t*  ov_hardware_get_memory(void);
+
+/* CPUID Safe Bounds & Leaf Queries */
+uint32_t ov_cpuid_max_leaf(void);
+uint32_t ov_cpuid_max_ext_leaf(void);
 
 /* CPUID Registers */
 typedef struct {

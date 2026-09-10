@@ -32,7 +32,10 @@ typedef enum {
     OV_HW_SOURCE_UNKNOWN = 0,
     OV_HW_SOURCE_HOST_DETECTED = 1,     /* Real physical/virtual host hardware detected */
     OV_HW_SOURCE_SIMULATED_PROFILE = 2, /* Simulated hardware profile */
-    OV_HW_SOURCE_INFERRED_FALLBACK = 3  /* Heuristic fallback or default */
+    OV_HW_SOURCE_INFERRED = 3,          /* Heuristic/inferred value */
+    OV_HW_SOURCE_UNAVAILABLE = 4,       /* Feature/hardware probe unavailable */
+    OV_HW_SOURCE_FALLBACK = 5,          /* Safe software/virtual fallback */
+    OV_HW_SOURCE_INFERRED_FALLBACK = 5  /* Backward compatibility alias */
 } ov_hw_source_t;
 
 const char* ov_hw_source_to_string(ov_hw_source_t source);

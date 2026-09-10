@@ -18,6 +18,7 @@
 #include "ov_benchmark.h"
 #include "ov_diagnostics.h"
 #include "ov_compatibility.h"
+#include "ov_platform.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -121,6 +122,39 @@ static void test_hardware_and_mac_profiles(void) {
 
     const ov_cpu_info_t *cur_cpu = ov_hardware_get_cpu();
     TEST_ASSERT(cur_cpu != NULL && cur_cpu->type == OV_CPU_INTEL_IVY_BRIDGE, "Active CPU is Ivy Bridge");
+
+    /* Test Multi-GPU topology in MacBookPro9,1 */
+    uint32_t gpu_count = ov_hardware_get_gpu_count();
+    TEST_ASSERT(gpu_count == 2, "MBP9,1 exposes exactly 2 GPUs in topology (HD 4000 + GT 650M)");
+
+    const ov_gpu_info_t *gpu0 = ov_hardware_get_gpu_at(0);
+    TEST_ASSERT(gpu0 != NULL, "GPU 0 is accessible");
+    TEST_ASSERT(gpu0->arch_gen == OV_GPU_ARCH_INTEL_GEN7, "GPU 0 is Intel HD 4000 (Gen7)");
+    TEST_ASSERT(gpu0->vendor_id == 0x8086, "GPU 0 vendor is Intel (0x8086)");
+
+    const ov_gpu_info_t *gpu1 = ov_hardware_get_gpu_at(1);
+    TEST_ASSERT(gpu1 != NULL, "GPU 1 is accessible");
+    TEST_ASSERT(gpu1->arch_gen == OV_GPU_ARCH_NVIDIA_KEPLER, "GPU 1 is NVIDIA Kepler GT 650M");
+    TEST_ASSERT(gpu1->vendor_id == 0x10DE, "GPU 1 vendor is NVIDIA (0x10DE)");
+    TEST_ASSERT(gpu1->metal_level == OV_METAL_2, "GPU 1 supports Metal 2 (Kepler)");
+    TEST_ASSERT(gpu1->supports_vulkan == true, "GPU 1 supports Vulkan");
+
+    const ov_gpu_topology_t *topo = ov_hardware_get_gpu_topology();
+    TEST_ASSERT(topo != NULL, "GPU topology structure is valid");
+    TEST_ASSERT(topo->gpu_count == 2, "Topology count is 2");
+    TEST_ASSERT(topo->has_integrated_gpu == true, "Topology reports integrated GPU present");
+    TEST_ASSERT(topo->has_discrete_gpu == true, "Topology reports discrete GPU present");
+    TEST_ASSERT(topo->is_muxed_switchable == true, "MBP9,1 is GMUX hardware switchable");
+
+    /* Test CPUID Max Leaf bounds checking */
+    uint32_t max_leaf = ov_cpuid_max_leaf();
+    TEST_ASSERT(max_leaf >= 1, "CPUID leaf 0 returns valid max leaf >= 1");
+
+    /* Test Platform Abstraction Dispatch */
+    ov_platform_type_t ptype = ov_platform_get_current();
+    TEST_ASSERT(ptype == OV_PLATFORM_LINUX || ptype == OV_PLATFORM_MACOS, "Current platform is valid OS");
+    const char *pname = ov_platform_get_name();
+    TEST_ASSERT(pname != NULL && strlen(pname) > 0, "Platform name is non-empty string");
 
     ov_hardware_cleanup();
 }
@@ -357,6 +391,33 @@ static void test_resolver_subsystem(void) {
     st = ov_resolver_evaluate_integrated(&req5, &res5);
     TEST_ASSERT(st == OV_SUCCESS, "Resolve OpenGL Classic succeeds");
     TEST_ASSERT(res5.gpu_translation_required == false, "OpenGL 3.3 is native on HD 4000");
+
+    /* Multi-GPU Topology-Aware Resolution Tests (MBP9,1 dual-GPU workload distribution) */
+    const ov_gpu_topology_t *mbp_topo = ov_hardware_get_gpu_topology();
+    TEST_ASSERT(mbp_topo != NULL && mbp_topo->gpu_count == 2, "MBP9,1 dual GPU topology is available");
+
+    /* Case A: Metal Odyssey requires Metal 2 -> Resolver should auto-select GPU 1 (NVIDIA GT 650M) */
+    ov_resolution_result_t res_topo_metal;
+    st = ov_resolver_evaluate_with_topology(&req0, mbp_topo, &res_topo_metal);
+    TEST_ASSERT(st == OV_SUCCESS, "Resolve Metal Odyssey across topology succeeds");
+    TEST_ASSERT(res_topo_metal.selected_gpu_index == 1, "Resolver selects GPU 1 (NVIDIA GT 650M) for Metal 2");
+    TEST_ASSERT(res_topo_metal.gpu_translation_required == false, "NVIDIA GT 650M Kepler runs Metal 2 natively without translation");
+    TEST_ASSERT(strstr(res_topo_metal.selected_gpu_name, "NVIDIA") != NULL, "Selected GPU name reflects NVIDIA GT 650M");
+
+    /* Case B: Vulkan Shooter -> Resolver should auto-select GPU 1 (NVIDIA GT 650M) */
+    ov_integrated_request_t req_vk = ov_resolver_get_preset_request(OV_WORKLOAD_PRESET_VULKAN_SHOOTER);
+    ov_resolution_result_t res_topo_vk;
+    st = ov_resolver_evaluate_with_topology(&req_vk, mbp_topo, &res_topo_vk);
+    TEST_ASSERT(st == OV_SUCCESS, "Resolve Vulkan Shooter across topology succeeds");
+    TEST_ASSERT(res_topo_vk.selected_gpu_index == 1, "Resolver selects GPU 1 (NVIDIA GT 650M) for Vulkan");
+    TEST_ASSERT(res_topo_vk.gpu_translation_required == false, "NVIDIA GT 650M Kepler runs Vulkan natively");
+
+    /* Case C: OpenGL Classic -> Resolver should select GPU 0 (Intel HD 4000) for power efficiency */
+    ov_resolution_result_t res_topo_gl;
+    st = ov_resolver_evaluate_with_topology(&req5, mbp_topo, &res_topo_gl);
+    TEST_ASSERT(st == OV_SUCCESS, "Resolve OpenGL Classic across topology succeeds");
+    TEST_ASSERT(res_topo_gl.selected_gpu_index == 0, "Resolver selects GPU 0 (Intel HD 4000) for lightweight OpenGL");
+    TEST_ASSERT(res_topo_gl.gpu_translation_required == false, "Intel HD 4000 runs OpenGL 3.3 natively");
 
     ov_resolver_cleanup();
     ov_unified_cache_cleanup();

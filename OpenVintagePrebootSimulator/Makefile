@@ -1,7 +1,7 @@
 # OpenVintage Pre-Boot Architecture Simulator (Phases 1-5) Makefile
 
 CC = gcc
-CFLAGS ?= -Wall -Wextra -O2 -g -Iinclude
+CFLAGS ?= -Wall -Wextra -O2 -g -Iinclude -Iplatform/common -Iplatform/macos
 LDFLAGS ?= -lpthread -lm
 
 # Detect libpci
@@ -22,6 +22,7 @@ endif
 
 SRC_DIR = src
 INC_DIR = include
+PLATFORM_DIR = platform
 BUILD_DIR = build
 BIN_DIR = bin
 
@@ -43,16 +44,38 @@ COMMON_SRCS = $(SRC_DIR)/ov_types.c \
               $(SRC_DIR)/ov_benchmark.c \
               $(SRC_DIR)/ov_diagnostics.c \
               $(SRC_DIR)/ov_core.c \
-              $(SRC_DIR)/ov_ui.c
+              $(SRC_DIR)/ov_ui.c \
+              $(PLATFORM_DIR)/common/ov_platform.c \
+              $(PLATFORM_DIR)/linux/ov_hardware_linux.c \
+              $(PLATFORM_DIR)/macos/ov_hardware_macos.c
 
 APP_SRCS = $(SRC_DIR)/main.c $(COMMON_SRCS)
 TEST_SRCS = tests/test_runner.c $(COMMON_SRCS)
 
-OBJS = $(APP_SRCS:$(SRC_DIR)/%.c=$(BUILD_DIR)/%.o)
-COMMON_OBJS = $(COMMON_SRCS:$(SRC_DIR)/%.c=$(BUILD_DIR)/%.o)
+OBJS = $(BUILD_DIR)/main.o \
+       $(BUILD_DIR)/ov_types.o \
+       $(BUILD_DIR)/ov_logger.o \
+       $(BUILD_DIR)/ov_memory.o \
+       $(BUILD_DIR)/ov_hardware.o \
+       $(BUILD_DIR)/ov_macos_compat.o \
+       $(BUILD_DIR)/ov_resolver.o \
+       $(BUILD_DIR)/ov_cpu_engine.o \
+       $(BUILD_DIR)/ov_gpu_engine.o \
+       $(BUILD_DIR)/ov_resource_manager.o \
+       $(BUILD_DIR)/ov_unified_cache.o \
+       $(BUILD_DIR)/ov_compatibility.o \
+       $(BUILD_DIR)/ov_benchmark.o \
+       $(BUILD_DIR)/ov_diagnostics.o \
+       $(BUILD_DIR)/ov_core.o \
+       $(BUILD_DIR)/ov_ui.o \
+       $(BUILD_DIR)/platform/common/ov_platform.o \
+       $(BUILD_DIR)/platform/linux/ov_hardware_linux.o \
+       $(BUILD_DIR)/platform/macos/ov_hardware_macos.o
+
+COMMON_OBJS = $(filter-out $(BUILD_DIR)/main.o,$(OBJS))
 TEST_OBJS = $(BUILD_DIR)/test_runner.o $(COMMON_OBJS)
 
-.PHONY: all clean test test-asan test-valgrind run
+.PHONY: all clean test test-asan test-valgrind run macos macos-intel macos-arm64 macos-universal
 
 all: $(TARGET) $(TEST_TARGET)
 
@@ -67,14 +90,44 @@ $(TEST_TARGET): $(TEST_OBJS) | $(BIN_DIR)
 $(BUILD_DIR)/test_runner.o: tests/test_runner.c | $(BUILD_DIR)
 	$(CC) $(CFLAGS) -c $< -o $@
 
+$(BUILD_DIR)/platform/common/%.o: $(PLATFORM_DIR)/common/%.c | $(BUILD_DIR)/platform/common
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(BUILD_DIR)/platform/linux/%.o: $(PLATFORM_DIR)/linux/%.c | $(BUILD_DIR)/platform/linux
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(BUILD_DIR)/platform/macos/%.o: $(PLATFORM_DIR)/macos/%.c | $(BUILD_DIR)/platform/macos
+	$(CC) $(CFLAGS) -c $< -o $@
+
 $(BUILD_DIR)/%.o: $(SRC_DIR)/%.c | $(BUILD_DIR)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 $(BUILD_DIR):
 	mkdir -p $(BUILD_DIR)
 
+$(BUILD_DIR)/platform/common:
+	mkdir -p $(BUILD_DIR)/platform/common
+
+$(BUILD_DIR)/platform/linux:
+	mkdir -p $(BUILD_DIR)/platform/linux
+
+$(BUILD_DIR)/platform/macos:
+	mkdir -p $(BUILD_DIR)/platform/macos
+
 $(BIN_DIR):
 	mkdir -p $(BIN_DIR)
+
+macos:
+	@$(MAKE) -C platform/macos -f Makefile.macos macos
+
+macos-intel:
+	@$(MAKE) -C platform/macos -f Makefile.macos macos-intel
+
+macos-arm64:
+	@$(MAKE) -C platform/macos -f Makefile.macos macos-arm64
+
+macos-universal:
+	@$(MAKE) -C platform/macos -f Makefile.macos macos-universal
 
 clean:
 	rm -rf $(BUILD_DIR) $(BIN_DIR) openvintage_preboot.log openvintage_report.txt openvintage_diagnostics.* test_report.* /tmp/ov_test_report.*

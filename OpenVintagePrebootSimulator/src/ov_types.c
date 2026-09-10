@@ -24,7 +24,9 @@ const char* ov_hw_source_to_string(ov_hw_source_t source) {
     switch (source) {
         case OV_HW_SOURCE_HOST_DETECTED:     return "REAL HOST HARDWARE DETECTION";
         case OV_HW_SOURCE_SIMULATED_PROFILE: return "SIMULATED HARDWARE PROFILE";
-        case OV_HW_SOURCE_INFERRED_FALLBACK: return "INFERRED FALLBACK HEURISTIC";
+        case OV_HW_SOURCE_INFERRED:          return "INFERRED HEURISTIC";
+        case OV_HW_SOURCE_UNAVAILABLE:       return "PROBE UNAVAILABLE";
+        case OV_HW_SOURCE_FALLBACK:          return "SAFE FALLBACK DEFAULT";
         case OV_HW_SOURCE_UNKNOWN:
         default:                             return "UNKNOWN SOURCE";
     }

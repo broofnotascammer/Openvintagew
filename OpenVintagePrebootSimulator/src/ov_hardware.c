@@ -69,22 +69,44 @@ bool ov_cpu_supports_sse42(void) {
     return (regs.ecx & (1 << 20)) != 0;
 }
 
+uint32_t ov_cpuid_max_leaf(void) {
+#if defined(__x86_64__) || defined(_M_X64)
+    cpuid_regs_t regs = ov_cpuid(0, 0);
+    return regs.eax;
+#else
+    return 0;
+#endif
+}
+
+uint32_t ov_cpuid_max_ext_leaf(void) {
+#if defined(__x86_64__) || defined(_M_X64)
+    cpuid_regs_t regs = ov_cpuid(0x80000000, 0);
+    return regs.eax;
+#else
+    return 0;
+#endif
+}
+
 bool ov_cpu_supports_avx(void) {
+    if (ov_cpuid_max_leaf() < 1) return false;
     cpuid_regs_t regs = ov_cpuid(1, 0);
     return (regs.ecx & (1 << 28)) != 0;
 }
 
 bool ov_cpu_supports_avx2(void) {
+    if (ov_cpuid_max_leaf() < 7) return false;
     cpuid_regs_t regs = ov_cpuid(7, 0);
     return (regs.ebx & (1 << 5)) != 0;
 }
 
 bool ov_cpu_supports_avx512(void) {
+    if (ov_cpuid_max_leaf() < 7) return false;
     cpuid_regs_t regs = ov_cpuid(7, 0);
     return (regs.ebx & (1 << 16)) != 0;
 }
 
 bool ov_cpu_supports_fma(void) {
+    if (ov_cpuid_max_leaf() < 1) return false;
     cpuid_regs_t regs = ov_cpuid(1, 0);
     return (regs.ecx & (1 << 12)) != 0;
 }
@@ -1850,7 +1872,33 @@ ov_status_t ov_hardware_set_active_profile(ov_hw_profile_id_t profile_id) {
 
     active_profile_id = profile_id;
     active_profile = prof;
-    ov_log_info("Active hardware profile set to: %s (%s)", active_profile.model_identifier, active_profile.marketing_name);
+
+    /* Initialize GPU topology if not explicitly populated */
+    if (active_profile.gpu_topology.gpu_count == 0) {
+        if (active_profile.has_discrete_gpu) {
+            active_profile.gpu_topology.gpu_count = 2;
+            active_profile.gpu_topology.gpus[0] = active_profile.gpu;
+            active_profile.gpu_topology.gpus[1] = active_profile.secondary_gpu;
+            active_profile.gpu_topology.primary_gpu_index = 0;
+            active_profile.gpu_topology.discrete_gpu_index = 1;
+            active_profile.gpu_topology.has_integrated_gpu = true;
+            active_profile.gpu_topology.has_discrete_gpu = true;
+            active_profile.gpu_topology.is_muxed_switchable = active_profile.is_switchable_graphics;
+            snprintf(active_profile.gpu_topology.switch_policy, sizeof(active_profile.gpu_topology.switch_policy),
+                     "Apple GMUX Hardware Multiplexed / Dynamic Switchable");
+        } else {
+            active_profile.gpu_topology.gpu_count = 1;
+            active_profile.gpu_topology.gpus[0] = active_profile.gpu;
+            active_profile.gpu_topology.primary_gpu_index = 0;
+            active_profile.gpu_topology.discrete_gpu_index = 0;
+            active_profile.gpu_topology.has_integrated_gpu = (active_profile.gpu.vendor_id == 0x8086);
+            active_profile.gpu_topology.has_discrete_gpu = false;
+        }
+    }
+
+    ov_log_info("Active hardware profile set to: %s (%s, %u GPUs)",
+                active_profile.model_identifier, active_profile.marketing_name,
+                active_profile.gpu_topology.gpu_count);
     return OV_SUCCESS;
 }
 
@@ -1899,4 +1947,24 @@ const ov_gpu_info_t* ov_hardware_get_secondary_gpu(void) {
 
 const ov_memory_info_t* ov_hardware_get_memory(void) {
     return &active_profile.mem;
+}
+
+uint32_t ov_hardware_get_gpu_count(void) {
+    if (active_profile.gpu_topology.gpu_count > 0) {
+        return active_profile.gpu_topology.gpu_count;
+    }
+    return active_profile.has_discrete_gpu ? 2 : 1;
+}
+
+const ov_gpu_info_t* ov_hardware_get_gpu_at(uint32_t index) {
+    if (active_profile.gpu_topology.gpu_count > 0 && index < active_profile.gpu_topology.gpu_count) {
+        return &active_profile.gpu_topology.gpus[index];
+    }
+    if (index == 0) return &active_profile.gpu;
+    if (index == 1 && active_profile.has_discrete_gpu) return &active_profile.secondary_gpu;
+    return &active_profile.gpu;
+}
+
+const ov_gpu_topology_t* ov_hardware_get_gpu_topology(void) {
+    return &active_profile.gpu_topology;
 }
