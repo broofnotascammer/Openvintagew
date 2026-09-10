@@ -1,0 +1,215 @@
+```yaml
+name: OpenVintage macOS Intel Build & Test
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - feature/preboot-simulator
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  macos-intel:
+    name: macOS Intel x86_64 — Catalina-compatible
+    runs-on: macos-15-intel
+
+    steps:
+      - name: Checkout OpenVintage
+        uses: actions/checkout@v6
+
+      - name: Show runner information
+        shell: bash
+        run: |
+          set -e
+
+          echo "=== Runner ==="
+          uname -a
+          sw_vers
+
+          echo
+          echo "=== Architecture ==="
+          uname -m
+
+          echo
+          echo "=== Compiler ==="
+          clang --version
+
+          echo
+          echo "=== SDK ==="
+          xcrun --show-sdk-path
+          xcrun --sdk macosx --show-sdk-version
+
+      - name: Verify repository revision
+        shell: bash
+        run: |
+          set -e
+
+          echo "=== Git revision ==="
+          git log -1 --oneline
+          git rev-parse HEAD
+
+          echo
+          echo "Expected current main revision:"
+          echo "7a197adc076d0dd4571e66396fb9c6e37489c45a"
+
+      - name: Clean previous simulator outputs
+        shell: bash
+        run: |
+          set -e
+          cd OpenVintagePrebootSimulator
+          make -C platform/macos -f Makefile.macos clean
+
+      - name: Build macOS Intel simulator
+        shell: bash
+        run: |
+          set -e
+
+          cd OpenVintagePrebootSimulator
+
+          make macos-intel
+
+      - name: Verify Intel binary
+        shell: bash
+        run: |
+          set -e
+
+          BINARY="OpenVintagePrebootSimulator/bin/openvintage-simulator-macos-x86_64"
+
+          test -f "$BINARY"
+          test -x "$BINARY"
+
+          echo "=== File ==="
+          file "$BINARY"
+
+          echo
+          echo "=== Architecture ==="
+          lipo -info "$BINARY"
+
+          echo
+          echo "=== Linked frameworks ==="
+          otool -L "$BINARY"
+
+          echo
+          echo "=== Mach-O deployment information ==="
+          otool -l "$BINARY" | grep -A4 -E "LC_BUILD_VERSION|LC_VERSION_MIN_MACOSX" || true
+
+          echo
+          echo "=== Binary size ==="
+          ls -lh "$BINARY"
+
+      - name: Build native macOS test runner
+        shell: bash
+        run: |
+          set -e
+
+          cd OpenVintagePrebootSimulator
+
+          mkdir -p build/macos-ci bin
+
+          clang \
+            -Wall \
+            -Wextra \
+            -O2 \
+            -g \
+            -Iinclude \
+            -Iplatform/common \
+            -Iplatform/macos \
+            tests/test_runner.c \
+            src/ov_types.c \
+            src/ov_logger.c \
+            src/ov_memory.c \
+            src/ov_hardware.c \
+            src/ov_macos_compat.c \
+            src/ov_resolver.c \
+            src/ov_cpu_engine.c \
+            src/ov_gpu_engine.c \
+            src/ov_resource_manager.c \
+            src/ov_unified_cache.c \
+            src/ov_compatibility.c \
+            src/ov_benchmark.c \
+            src/ov_diagnostics.c \
+            src/ov_core.c \
+            src/ov_ui.c \
+            platform/common/ov_platform.c \
+            platform/macos/ov_hardware_macos.c \
+            -target x86_64-apple-macos10.15 \
+            -o bin/test_runner_macos-x86_64 \
+            -lpthread \
+            -lm \
+            -framework CoreFoundation \
+            -framework IOKit \
+            -framework Metal \
+            -framework OpenGL
+
+      - name: Run native macOS test runner
+        shell: bash
+        run: |
+          set -e
+
+          cd OpenVintagePrebootSimulator
+
+          ./bin/test_runner_macos-x86_64
+
+      - name: Run simulator help / CLI smoke test
+        shell: bash
+        run: |
+          set -e
+
+          cd OpenVintagePrebootSimulator
+
+          ./bin/openvintage-simulator-macos-x86_64 --help || true
+
+      - name: Run MBP9,1 compatibility simulation
+        shell: bash
+        run: |
+          set -e
+
+          cd OpenVintagePrebootSimulator
+
+          ./bin/openvintage-simulator-macos-x86_64 \
+            --cli \
+            --mac MBP9,1 \
+            --compat-matrix \
+            --target-os monterey \
+            --bench \
+            --report ci_mbp91_report.txt \
+            --html ci_mbp91_report.html \
+            --json ci_mbp91_report.json
+
+      - name: Collect CI reports
+        if: always()
+        shell: bash
+        run: |
+          mkdir -p ci-artifacts
+
+          cp OpenVintagePrebootSimulator/bin/openvintage-simulator-macos-x86_64 \
+             ci-artifacts/
+
+          cp OpenVintagePrebootSimulator/bin/test_runner_macos-x86_64 \
+             ci-artifacts/
+
+          cp OpenVintagePrebootSimulator/ci_mbp91_report.txt \
+             ci-artifacts/ 2>/dev/null || true
+
+          cp OpenVintagePrebootSimulator/ci_mbp91_report.html \
+             ci-artifacts/ 2>/dev/null || true
+
+          cp OpenVintagePrebootSimulator/ci_mbp91_report.json \
+             ci-artifacts/ 2>/dev/null || true
+
+          shasum -a 256 ci-artifacts/* > ci-artifacts/SHA256SUMS.txt
+
+      - name: Upload macOS Intel artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: openvintage-macos-intel-x86_64
+          path: ci-artifacts/
+          retention-days: 14
+```
