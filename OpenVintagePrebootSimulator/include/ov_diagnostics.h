@@ -1,6 +1,6 @@
 /**
  * OpenVintage Pre-Boot Simulator - Unified Diagnostics & Report Generation (Phase 5)
- * Platform audit, system health score, and JSON/HTML/Text export.
+ * Platform audit, system health score, Mac compatibility, and JSON/HTML/Text export.
  */
 
 #ifndef OV_DIAGNOSTICS_H
@@ -19,6 +19,12 @@ typedef struct {
     uint32_t firmware_revision;
     uint32_t bitness;
     uint32_t system_health_score;        /* 0 - 100 */
+
+    /* Mac Profile & Compatibility */
+    char     mac_model[32];
+    char     mac_model_name[64];
+    char     macos_compat_summary[256];
+    bool     oclp_patchable;
 
     /* CPU */
     char     cpu_model[128];

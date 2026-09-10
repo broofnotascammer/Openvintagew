@@ -9,22 +9,6 @@
 
 #define LOG_RING_BUFFER_SIZE 32768
 
-const char* ov_status_to_string(ov_status_t status) {
-    switch (status) {
-        case OV_SUCCESS: return "Success";
-        case OV_ERROR_INIT: return "Initialization Error";
-        case OV_ERROR_HARDWARE: return "Hardware Error";
-        case OV_ERROR_MEMORY: return "Memory Error";
-        case OV_ERROR_CONFIG: return "Configuration Error";
-        case OV_ERROR_INVALID_PARAM: return "Invalid Parameter";
-        case OV_ERROR_NOT_FOUND: return "Not Found";
-        case OV_ERROR_OUT_OF_RESOURCES: return "Out of Resources";
-        case OV_ERROR_UNSUPPORTED: return "Unsupported";
-        case OV_ERROR_INTEGRITY: return "Integrity Failure";
-        default: return "Unknown Error";
-    }
-}
-
 static FILE *log_file = NULL;
 static char log_filename[512] = {0};
 static char recent_logs_buffer[LOG_RING_BUFFER_SIZE] = {0};

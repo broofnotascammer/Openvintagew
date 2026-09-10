@@ -270,12 +270,12 @@ void ov_core_cleanup(void) {
     ov_cpu_engine_cleanup();
     ov_resolver_cleanup();
     ov_hardware_cleanup();
-    ov_memory_cleanup();
-
     if (ov_core_instance.pci_devices) {
-        free(ov_core_instance.pci_devices);
+        ov_free(ov_core_instance.pci_devices);
         ov_core_instance.pci_devices = NULL;
     }
+
+    ov_memory_cleanup();
 
     ov_core_instance.initialized = false;
     ov_logger_cleanup();

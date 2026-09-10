@@ -89,8 +89,8 @@ typedef struct {
 
 /* Shader Translation Specification */
 typedef struct {
-    char source_api[32];        /* "Metal 2 MSL", "Vulkan SPIR-V", "DirectX DXBC" */
-    char target_backend[32];    /* "OpenGL 3.3 GLSL", "Intel Gen7 EU Bytecode", "Direct Metal" */
+    char source_api[64];        /* "Metal 2 MSL", "Vulkan SPIR-V", "DirectX DXBC" */
+    char target_backend[64];    /* "OpenGL 3.3 GLSL", "Intel Gen7 EU Bytecode", "Direct Metal" */
     char source_code[1024];     /* High-level snippet */
     char translated_code[1024]; /* Transformed shader code */
     uint32_t instruction_count;

@@ -1,6 +1,6 @@
 /**
  * OpenVintage Pre-Boot Simulator - OVIR-CPU Translation Engine (Phase 4)
- * Architecture-agnostic intermediate representation, optimizer passes, and JIT simulation.
+ * Architecture-agnostic intermediate representation, optimizer passes, execution, and JIT caching.
  */
 
 #ifndef OV_CPU_ENGINE_H
@@ -131,6 +131,14 @@ ov_status_t ov_cpu_optimize_program(
     bool                      enable_dce,
     bool                      enable_move_elim,
     ov_cpu_optimizer_stats_t *out_stats
+);
+
+/* Real Program Execution */
+ov_status_t ov_cpu_execute_program(
+    const ov_cpu_program_t   *program,
+    int64_t                  *registers,
+    size_t                    num_regs,
+    uint64_t                 *out_cycles
 );
 
 /* JIT Cache Simulation */

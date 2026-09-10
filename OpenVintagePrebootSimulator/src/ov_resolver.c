@@ -1,9 +1,11 @@
 /**
  * OpenVintage Pre-Boot Simulator - Phase 5 Unified Resolver Subsystem Implementation
+ * Architecture Decision Matrix & Integrated Multi-Subsystem Evaluation.
  */
 
 #include "ov_resolver.h"
 #include "ov_hardware.h"
+#include "ov_unified_cache.h"
 #include "ov_logger.h"
 #include <stdio.h>
 #include <string.h>
@@ -37,7 +39,7 @@ ov_integrated_request_t ov_resolver_get_preset_request(ov_workload_preset_id_t p
 
     switch (preset_id) {
         case OV_WORKLOAD_PRESET_METAL_GAME:
-            strcpy(req.application_name, "Metal Odyssey");
+            snprintf(req.application_name, sizeof(req.application_name), "Metal Odyssey");
             req.guest_cpu_arch = 1; /* ARM64 */
             req.requested_api = OV_API_METAL;
             req.api_version_major = 2;
@@ -54,7 +56,7 @@ ov_integrated_request_t ov_resolver_get_preset_request(ov_workload_preset_id_t p
             break;
 
         case OV_WORKLOAD_PRESET_VULKAN_SHOOTER:
-            strcpy(req.application_name, "CyberVulkan 2077");
+            snprintf(req.application_name, sizeof(req.application_name), "CyberVulkan 2077");
             req.guest_cpu_arch = 2; /* x86_64 */
             req.requested_api = OV_API_VULKAN;
             req.api_version_major = 1;
@@ -71,7 +73,7 @@ ov_integrated_request_t ov_resolver_get_preset_request(ov_workload_preset_id_t p
             break;
 
         case OV_WORKLOAD_PRESET_DIRECTX_LEGACY:
-            strcpy(req.application_name, "Legacy Direct3D App");
+            snprintf(req.application_name, sizeof(req.application_name), "DirectX Legacy App");
             req.guest_cpu_arch = 3; /* x86_32 */
             req.requested_api = OV_API_DIRECTX;
             req.api_version_major = 9;
@@ -79,37 +81,37 @@ ov_integrated_request_t ov_resolver_get_preset_request(ov_workload_preset_id_t p
             req.requires_compute = false;
             req.requires_tessellation = false;
             req.requires_avx2 = false;
-            req.max_texture_dimension = 4096;
-            req.required_vram_bytes = 512ULL * 1024 * 1024;
+            req.max_texture_dimension = 2048;
+            req.required_vram_bytes = 256ULL * 1024 * 1024;
             req.required_ram_bytes = 2ULL * 1024 * 1024 * 1024;
             req.required_cpu_cores = 2;
-            req.guest_code_hash = 0x1234567812345678ULL;
-            req.shader_bytecode_hash = 0x9876543210FEDCBAULL;
+            req.guest_code_hash = 0x1234567890ABCDEFULL;
+            req.shader_bytecode_hash = 0xFEDCBA0987654321ULL;
             break;
 
         case OV_WORKLOAD_PRESET_ARM64_COMPUTE:
-            strcpy(req.application_name, "ARM64 Scientific Matrix");
+            snprintf(req.application_name, sizeof(req.application_name), "ARM64 Compute Kernel");
             req.guest_cpu_arch = 1; /* ARM64 */
             req.requested_api = OV_API_OPENGL;
-            req.api_version_major = 3;
-            req.api_version_minor = 3;
-            req.requires_compute = false;
+            req.api_version_major = 4;
+            req.api_version_minor = 0;
+            req.requires_compute = true;
             req.requires_tessellation = false;
             req.requires_avx2 = false;
-            req.max_texture_dimension = 2048;
-            req.required_vram_bytes = 256ULL * 1024 * 1024;
-            req.required_ram_bytes = 4ULL * 1024 * 1024 * 1024;
-            req.required_cpu_cores = 4;
-            req.guest_code_hash = 0xCAFEBABE11223344ULL;
+            req.max_texture_dimension = 4096;
+            req.required_vram_bytes = 512ULL * 1024 * 1024;
+            req.required_ram_bytes = 8ULL * 1024 * 1024 * 1024;
+            req.required_cpu_cores = 8;
+            req.guest_code_hash = 0x9988776655443322ULL;
             req.shader_bytecode_hash = 0;
             break;
 
         case OV_WORKLOAD_PRESET_AVX2_SIMD:
-            strcpy(req.application_name, "AVX2 Video Filter");
+            snprintf(req.application_name, sizeof(req.application_name), "AVX2 SIMD Filter");
             req.guest_cpu_arch = 2; /* x86_64 */
             req.requested_api = OV_API_OPENGL;
-            req.api_version_major = 3;
-            req.api_version_minor = 3;
+            req.api_version_major = 4;
+            req.api_version_minor = 0;
             req.requires_compute = false;
             req.requires_tessellation = false;
             req.requires_avx2 = true;
@@ -117,13 +119,13 @@ ov_integrated_request_t ov_resolver_get_preset_request(ov_workload_preset_id_t p
             req.required_vram_bytes = 512ULL * 1024 * 1024;
             req.required_ram_bytes = 4ULL * 1024 * 1024 * 1024;
             req.required_cpu_cores = 4;
-            req.guest_code_hash = 0x9988776655443322ULL;
+            req.guest_code_hash = 0x1111222233334444ULL;
             req.shader_bytecode_hash = 0;
             break;
 
         case OV_WORKLOAD_PRESET_OPENGL_CLASSIC:
         default:
-            strcpy(req.application_name, "OpenGL Classic Engine");
+            snprintf(req.application_name, sizeof(req.application_name), "OpenGL Classic 3.3 Engine");
             req.guest_cpu_arch = 2; /* x86_64 */
             req.requested_api = OV_API_OPENGL;
             req.api_version_major = 3;
@@ -135,18 +137,31 @@ ov_integrated_request_t ov_resolver_get_preset_request(ov_workload_preset_id_t p
             req.required_vram_bytes = 256ULL * 1024 * 1024;
             req.required_ram_bytes = 2ULL * 1024 * 1024 * 1024;
             req.required_cpu_cores = 2;
-            req.guest_code_hash = 0x1111222233334444ULL;
-            req.shader_bytecode_hash = 0x5555666677778888ULL;
+            req.guest_code_hash = 0;
+            req.shader_bytecode_hash = 0;
             break;
     }
+
     return req;
 }
 
 ov_status_t ov_resolver_init(ov_cpu_info_t *cpu, ov_gpu_info_t *gpu, ov_memory_info_t *mem) {
-    ov_log_info("Initializing Phase 5 Unified Resolver subsystem...");
-    resolver_cpu = cpu ? cpu : (ov_cpu_info_t*)ov_hardware_get_cpu();
-    resolver_gpu = gpu ? gpu : (ov_gpu_info_t*)ov_hardware_get_gpu();
-    resolver_mem = mem ? mem : (ov_memory_info_t*)ov_hardware_get_memory();
+    ov_log_info("Initializing Phase 5 Unified Architecture Decision Resolver...");
+    resolver_cpu = cpu;
+    resolver_gpu = gpu;
+    resolver_mem = mem;
+    return OV_SUCCESS;
+}
+
+ov_status_t ov_resolver_bind_hardware(
+    ov_cpu_info_t    *cpu,
+    ov_gpu_info_t    *gpu,
+    ov_memory_info_t *mem
+) {
+    resolver_cpu = cpu;
+    resolver_gpu = gpu;
+    resolver_mem = mem;
+    ov_log_info("Resolver bound to custom hardware state");
     return OV_SUCCESS;
 }
 
@@ -167,64 +182,123 @@ ov_status_t ov_resolver_evaluate_integrated(
     /* 1. CPU Architecture Resolution */
     if (request->guest_cpu_arch == 1) {
         /* Guest is ARM64 */
-        if (cpu->type == OV_CPU_ARM64) {
-            strcpy(out_result->cpu_path, "Native ARM64 Core Dispatch");
+        if (cpu->type >= OV_CPU_ARM64_M1 && cpu->type <= OV_CPU_ARM64_GENERIC) {
+            snprintf(out_result->cpu_path, sizeof(out_result->cpu_path), "Native ARM64 Core Dispatch");
             out_result->cpu_translation_required = false;
         } else {
-            strcpy(out_result->cpu_path, "OVIR-CPU JIT (ARM64 -> x86_64)");
+            snprintf(out_result->cpu_path, sizeof(out_result->cpu_path), "OVIR-CPU JIT (ARM64 -> x86_64)");
             out_result->cpu_translation_required = true;
-            out_result->cpu_cache_hit = (request->guest_code_hash != 0);
             cost += 45;
+
+            /* Check real Unified Cache */
+            if (request->guest_code_hash != 0) {
+                uint8_t dummy[64];
+                size_t dlen = 0;
+                ov_status_t cst = ov_unified_cache_lookup(OV_CACHE_TIER_CPU_TRANSLATION,
+                                                         request->guest_code_hash,
+                                                         dummy, sizeof(dummy), &dlen);
+                if (cst == OV_SUCCESS) {
+                    out_result->cpu_cache_hit = true;
+                    cost -= 20; /* JIT cache hit reduces overhead */
+                } else {
+                    out_result->cpu_cache_hit = false;
+                    /* Insert into cache for next lookup */
+                    uint8_t payload[32] = {0x90, 0xCC};
+                    ov_unified_cache_store(OV_CACHE_TIER_CPU_TRANSLATION,
+                                          request->guest_code_hash,
+                                          payload, sizeof(payload));
+                }
+            }
         }
     } else if (request->guest_cpu_arch == 2) {
         /* Guest is x86_64 */
-        if (cpu->type == OV_CPU_ARM64) {
-            strcpy(out_result->cpu_path, "OVIR-CPU Dynamic Binary Translation (x86_64 -> ARM64)");
+        if (cpu->type >= OV_CPU_ARM64_M1 && cpu->type <= OV_CPU_ARM64_GENERIC) {
+            snprintf(out_result->cpu_path, sizeof(out_result->cpu_path), "OVIR-CPU Dynamic Binary Translation (x86_64 -> ARM64)");
             out_result->cpu_translation_required = true;
             cost += 55;
         } else {
             if (request->requires_avx2 && !cpu->has_avx2) {
-                strcpy(out_result->cpu_path, "OVIR-CPU AVX2 SIMD Emulation via SSE4.2");
+                snprintf(out_result->cpu_path, sizeof(out_result->cpu_path), "OVIR-CPU AVX2 SIMD Emulation via SSE4.2");
                 out_result->cpu_translation_required = true;
                 cost += 35;
             } else {
-                strcpy(out_result->cpu_path, "Native x86_64 Fast Path");
+                snprintf(out_result->cpu_path, sizeof(out_result->cpu_path), "Native x86_64 Fast Path");
                 out_result->cpu_translation_required = false;
             }
         }
     } else {
         /* x86_32 */
-        strcpy(out_result->cpu_path, "x86_32 Compatibility Mode");
+        snprintf(out_result->cpu_path, sizeof(out_result->cpu_path), "x86_32 Compatibility Mode");
         out_result->cpu_translation_required = false;
         cost += 10;
     }
 
     /* 2. GPU API Resolution */
     if (request->requested_api == OV_API_METAL) {
-        if (gpu->supports_metal) {
-            strcpy(out_result->gpu_path, "Native Metal 2.0 Command Stream");
+        bool metal_supported = gpu->supports_metal;
+        if (request->api_version_major >= 2 && gpu->metal_level < OV_METAL_2) {
+            metal_supported = false;
+        }
+        if (metal_supported) {
+            snprintf(out_result->gpu_path, sizeof(out_result->gpu_path), "Native Metal 2.0 Command Stream");
             out_result->gpu_translation_required = false;
         } else {
-            strcpy(out_result->gpu_path, "OVIR-GPU Metal -> OpenGL 4.0 Core / Gen7 EU Bytecode");
+            snprintf(out_result->gpu_path, sizeof(out_result->gpu_path), "OVIR-GPU Metal -> OpenGL 4.0 Core / Gen7 EU Bytecode");
             out_result->gpu_translation_required = true;
-            out_result->shader_cache_hit = true;
             cost += 30;
+
+            /* Check real Unified Cache for shader */
+            if (request->shader_bytecode_hash != 0) {
+                uint8_t dummy[64];
+                size_t dlen = 0;
+                ov_status_t cst = ov_unified_cache_lookup(OV_CACHE_TIER_SHADER,
+                                                         request->shader_bytecode_hash,
+                                                         dummy, sizeof(dummy), &dlen);
+                if (cst == OV_SUCCESS) {
+                    out_result->shader_cache_hit = true;
+                    cost -= 15;
+                } else {
+                    out_result->shader_cache_hit = false;
+                    uint8_t payload[32] = {0x01, 0x02};
+                    ov_unified_cache_store(OV_CACHE_TIER_SHADER,
+                                          request->shader_bytecode_hash,
+                                          payload, sizeof(payload));
+                }
+            }
         }
     } else if (request->requested_api == OV_API_VULKAN) {
         if (gpu->supports_vulkan) {
-            strcpy(out_result->gpu_path, "Native Vulkan 1.2 Pipeline");
+            snprintf(out_result->gpu_path, sizeof(out_result->gpu_path), "Native Vulkan 1.2 Pipeline");
             out_result->gpu_translation_required = false;
         } else {
-            strcpy(out_result->gpu_path, "OVIR-GPU SPIR-V -> OpenGL 4.0 GLSL Translation");
+            snprintf(out_result->gpu_path, sizeof(out_result->gpu_path), "OVIR-GPU SPIR-V -> OpenGL 4.0 GLSL Translation");
             out_result->gpu_translation_required = true;
             cost += 35;
+
+            if (request->shader_bytecode_hash != 0) {
+                uint8_t dummy[64];
+                size_t dlen = 0;
+                ov_status_t cst = ov_unified_cache_lookup(OV_CACHE_TIER_SHADER,
+                                                         request->shader_bytecode_hash,
+                                                         dummy, sizeof(dummy), &dlen);
+                if (cst == OV_SUCCESS) {
+                    out_result->shader_cache_hit = true;
+                    cost -= 15;
+                } else {
+                    out_result->shader_cache_hit = false;
+                    uint8_t payload[32] = {0x03, 0x04};
+                    ov_unified_cache_store(OV_CACHE_TIER_SHADER,
+                                          request->shader_bytecode_hash,
+                                          payload, sizeof(payload));
+                }
+            }
         }
     } else if (request->requested_api == OV_API_DIRECTX) {
-        strcpy(out_result->gpu_path, "OVIR-GPU DXBC -> OpenGL 3.3 Core Shaders");
+        snprintf(out_result->gpu_path, sizeof(out_result->gpu_path), "OVIR-GPU DXBC -> OpenGL 3.3 Core Shaders");
         out_result->gpu_translation_required = true;
         cost += 20;
     } else {
-        strcpy(out_result->gpu_path, "Native OpenGL 3.3/4.0 Core Profile");
+        snprintf(out_result->gpu_path, sizeof(out_result->gpu_path), "Native OpenGL 3.3/4.0 Core Profile");
         out_result->gpu_translation_required = false;
     }
 
@@ -238,7 +312,8 @@ ov_status_t ov_resolver_evaluate_integrated(
     if (request->requires_compute && !gpu->supports_compute) {
         out_result->software_fallback_used = true;
         out_result->decision = OV_RESOLUTION_FALLBACK;
-        strcat(out_result->gpu_path, " + SoftPipe Compute");
+        size_t cur_len = strlen(out_result->gpu_path);
+        snprintf(out_result->gpu_path + cur_len, sizeof(out_result->gpu_path) - cur_len, " + SoftPipe Compute");
         cost += 60;
     }
 
@@ -264,20 +339,20 @@ ov_status_t ov_resolver_evaluate_integrated(
              "[%s] -> [%s]", out_result->cpu_path, out_result->gpu_path);
 
     if (out_result->cpu_translation_required && out_result->gpu_translation_required) {
-        out_result->decision = OV_RESOLUTION_TRANSLATED;
+        out_result->decision = OV_RESOLUTION_JIT_TRANSLATED;
         snprintf(out_result->rationale, sizeof(out_result->rationale),
                  "Full OVIR translation active (CPU JIT + GPU Shader translation). Overhead ~%u%%.",
-                 cost - 100);
+                 cost > 100 ? cost - 100 : 0);
     } else if (out_result->cpu_translation_required) {
-        out_result->decision = OV_RESOLUTION_TRANSLATED;
+        out_result->decision = OV_RESOLUTION_JIT_TRANSLATED;
         snprintf(out_result->rationale, sizeof(out_result->rationale),
                  "OVIR-CPU translation active, GPU dispatch native. Overhead ~%u%%.",
-                 cost - 100);
+                 cost > 100 ? cost - 100 : 0);
     } else if (out_result->gpu_translation_required) {
-        out_result->decision = OV_RESOLUTION_TRANSLATED;
+        out_result->decision = OV_RESOLUTION_JIT_TRANSLATED;
         snprintf(out_result->rationale, sizeof(out_result->rationale),
                  "GPU translation active (MSL/SPIR-V -> GLSL), CPU direct. Overhead ~%u%%.",
-                 cost - 100);
+                 cost > 100 ? cost - 100 : 0);
     } else {
         out_result->decision = OV_RESOLUTION_NATIVE;
         snprintf(out_result->rationale, sizeof(out_result->rationale),
@@ -293,13 +368,13 @@ ov_resolution_t ov_resolver_route(ov_workload_t *workload) {
     ov_resolution_t resolution = {0};
     if (!workload) {
         resolution.mode = OV_EXEC_FALLBACK;
-        strcpy(resolution.reason, "Invalid workload");
+        snprintf(resolution.reason, sizeof(resolution.reason), "Invalid workload");
         return resolution;
     }
 
     ov_integrated_request_t req;
     memset(&req, 0, sizeof(req));
-    strcpy(req.application_name, "Workload");
+    snprintf(req.application_name, sizeof(req.application_name), "Workload");
     req.guest_cpu_arch = 2;
 
     switch (workload->type) {
@@ -377,7 +452,8 @@ void ov_resolver_analyze_gpu(ov_gpu_info_t *gpu) {
 const char* ov_resolver_decision_to_string(ov_resolution_decision_t decision) {
     switch (decision) {
         case OV_RESOLUTION_NATIVE: return "Native Hardware Path";
-        case OV_RESOLUTION_TRANSLATED: return "OVIR Translated";
+        case OV_RESOLUTION_JIT_TRANSLATED: return "OVIR Translated";
+        case OV_RESOLUTION_RECOMPILED: return "Statically Recompiled";
         case OV_RESOLUTION_SIMPLIFIED: return "Simplified / Clamped";
         case OV_RESOLUTION_FALLBACK: return "Software CPU Fallback";
         case OV_RESOLUTION_UNSUPPORTED: return "Unsupported";

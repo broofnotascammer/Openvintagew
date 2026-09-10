@@ -1,9 +1,11 @@
 /**
  * OpenVintage Pre-Boot Simulator - Unified Diagnostics & Report Generation (Phase 5)
+ * Platform audit, system health score, Mac compatibility evaluation, and JSON/HTML/Text export.
  */
 
 #include "ov_diagnostics.h"
 #include "ov_hardware.h"
+#include "ov_macos_compat.h"
 #include "ov_unified_cache.h"
 #include "ov_memory.h"
 #include "ov_logger.h"
@@ -12,7 +14,7 @@
 #include <time.h>
 
 ov_status_t ov_diagnostics_init(void) {
-    ov_log_info("Initializing Phase 5 Diagnostics Subsystem...");
+    ov_log_info("Diagnostics Subsystem initialized");
     return OV_SUCCESS;
 }
 
@@ -27,16 +29,38 @@ ov_status_t ov_diagnostics_generate_report(ov_diagnostic_report_t *out_report) {
     const ov_cpu_info_t *cpu = ov_hardware_get_cpu();
     const ov_gpu_info_t *gpu = ov_hardware_get_gpu();
     const ov_memory_info_t *mem = ov_hardware_get_memory();
+    const ov_hardware_profile_t *prof = ov_hardware_get_active_profile();
     ov_memory_stats_t mem_stats = ov_memory_get_stats();
 
     ov_unified_cache_stats_t cstats;
     ov_unified_cache_get_stats(&cstats);
 
     /* Platform & Firmware */
-    strcpy(out_report->platform_name, "OpenVintage EFI Platform");
-    strcpy(out_report->firmware_vendor, "OpenVintage Systems / EDK2");
+    snprintf(out_report->platform_name, sizeof(out_report->platform_name), "OpenVintage EFI Platform");
+    snprintf(out_report->firmware_vendor, sizeof(out_report->firmware_vendor), "OpenVintage Systems / EDK2");
     out_report->firmware_revision = 0x00010005; /* v1.5 */
     out_report->bitness = 64;
+
+    /* Mac Profile & Compatibility */
+    if (prof) {
+        snprintf(out_report->mac_model, sizeof(out_report->mac_model), "%s", prof->model_identifier);
+        snprintf(out_report->mac_model_name, sizeof(out_report->mac_model_name), "%s", prof->marketing_name);
+
+        /* Evaluate against macOS Monterey (12.0) */
+        ov_macos_compat_eval_t res;
+        ov_macos_compat_evaluate(OV_MACOS_12_MONTEREY, prof, &res);
+        out_report->oclp_patchable = (res.patcher_recommended == OV_PATCHER_OPENCORE_LEGACY);
+        const char *summary_msg = res.notes[0] ? res.notes : (res.failure_reason[0] ? res.failure_reason : "Fully compatible");
+        snprintf(out_report->macos_compat_summary, sizeof(out_report->macos_compat_summary),
+                 "macOS 12 Monterey: %s (%s)",
+                 ov_macos_compat_rating_to_string(res.rating),
+                 summary_msg);
+    } else {
+        snprintf(out_report->mac_model, sizeof(out_report->mac_model), "Host System");
+        snprintf(out_report->mac_model_name, sizeof(out_report->mac_model_name), "Native Host Environment");
+        snprintf(out_report->macos_compat_summary, sizeof(out_report->macos_compat_summary), "Custom / Native Host");
+        out_report->oclp_patchable = false;
+    }
 
     /* CPU */
     strncpy(out_report->cpu_model, cpu->model_name, sizeof(out_report->cpu_model) - 1);
@@ -61,14 +85,14 @@ ov_status_t ov_diagnostics_generate_report(ov_diagnostic_report_t *out_report) {
     out_report->total_ram_bytes = mem->total_bytes;
     out_report->free_ram_bytes = mem->available_bytes;
     out_report->allocated_ram_bytes = mem_stats.allocated;
-    out_report->memory_leaks_detected = false;
+    out_report->memory_leaks_detected = mem_stats.has_leaks;
 
     /* APIs */
     out_report->native_metal_available = gpu->supports_metal;
     out_report->native_vulkan_available = gpu->supports_vulkan;
     out_report->native_opengl_core_available = gpu->supports_opengl_core;
     snprintf(out_report->api_summary, sizeof(out_report->api_summary),
-             "OpenGL 4.0 Core [%s], Vulkan [%s], Metal [%s]",
+             "OpenGL Core [%s], Vulkan [%s], Metal [%s]",
              gpu->supports_opengl_core ? "Native" : "None",
              gpu->supports_vulkan ? "Native" : "OVIR-GPU Trans",
              gpu->supports_metal ? "Native" : "OVIR-GPU Trans");
@@ -81,13 +105,16 @@ ov_status_t ov_diagnostics_generate_report(ov_diagnostic_report_t *out_report) {
 
     /* Cache State */
     out_report->cache_generation = cstats.current_generation;
-    out_report->total_cache_entries = cstats.cpu_cache_entries + cstats.shader_cache_entries + cstats.pipeline_cache_entries;
-    out_report->total_cache_size_bytes = cstats.cpu_cache_bytes + cstats.shader_cache_bytes + cstats.pipeline_cache_bytes;
+    out_report->total_cache_entries = cstats.cpu_cache_entries + cstats.shader_cache_entries +
+                                      cstats.pipeline_cache_entries + cstats.compat_cache_entries;
+    out_report->total_cache_size_bytes = cstats.cpu_cache_bytes + cstats.shader_cache_bytes +
+                                         cstats.pipeline_cache_bytes + cstats.compat_cache_bytes;
     out_report->cache_hit_rate_pct = cstats.overall_hit_rate_percent;
 
-    strcpy(out_report->execution_policy, "OVIR Adaptive Hybrid Routing (Phase 5)");
-    strcpy(out_report->silicon_quirks_summary,
-           "Gen7 texture clamp 8192 active; AVX2 emulated via SSE4.2; Gen7 sampler Y-inversion active.");
+    snprintf(out_report->execution_policy, sizeof(out_report->execution_policy), "OVIR Adaptive Hybrid Routing (Phase 5)");
+    snprintf(out_report->silicon_quirks_summary, sizeof(out_report->silicon_quirks_summary),
+             "Texture clamping <= %upx; Metal emulation via GLSL core; AVX2 emulated via SSE4.2 if absent.",
+             gpu->max_texture_dimension);
 
     /* Health Score Calculation (0-100) */
     uint32_t score = 70;
@@ -95,7 +122,7 @@ ov_status_t ov_diagnostics_generate_report(ov_diagnostic_report_t *out_report) {
     if (cpu->has_avx) score += 5;
     if (cpu->has_avx2) score += 5;
     if (gpu->supports_opengl_core) score += 5;
-    if (cstats.overall_hit_rate_percent >= 80) score += 5;
+    if (cstats.overall_hit_rate_percent >= 50) score += 5;
     if (!out_report->memory_leaks_detected) score += 5;
     if (score > 100) score = 100;
     out_report->system_health_score = score;
@@ -112,6 +139,9 @@ void ov_diagnostics_format_text(const ov_diagnostic_report_t *r, char *out_buf, 
         "================================================================================\n\n"
         "System Health Score: %u / 100 [OPTIMAL]\n"
         "Platform:            %s (%s, Rev 0x%08x)\n"
+        "Mac Model:           %s (%s)\n"
+        "macOS Compatibility: %s\n"
+        "OCLP Patch Support:  %s\n"
         "Execution Policy:    %s\n\n"
         "[PROCESSOR (CPU)]\n"
         "Model:               %s\n"
@@ -120,23 +150,26 @@ void ov_diagnostics_format_text(const ov_diagnostic_report_t *r, char *out_buf, 
         "Translation Support: ARM64->x86_64 JIT: %s | x86 Recompilation: %s\n\n"
         "[GRAPHICS ACCELERATOR (GPU)]\n"
         "Model:               %s (PCI 0x%04x:0x%04x)\n"
-        "Dedicated Memory:    %lu MB VRAM | Max Texture: %upx\n"
+        "Dedicated Memory:    %llu MB VRAM | Max Texture: %upx\n"
         "Hardware Features:   Compute: %s | Tessellation: %s\n"
         "API Capabilities:    %s\n\n"
         "[SYSTEM MEMORY]\n"
-        "Total Physical RAM:  %lu MB\n"
-        "Available Free RAM:  %lu MB\n"
-        "Simulator Pool Peak: %lu KB\n"
+        "Total Physical RAM:  %llu MB\n"
+        "Available Free RAM:  %llu MB\n"
+        "Allocated Simulator: %llu KB\n"
         "Integrity / Leaks:   %s\n\n"
         "[UNIFIED MULTI-TIER CACHE]\n"
         "Generation:          %u\n"
-        "Active Entries:      %u entries (%lu KB total)\n"
+        "Active Entries:      %u entries (%llu KB total)\n"
         "Global Hit Rate:     %u%%\n\n"
         "[ACTIVE SILICON QUIRKS & WORKAROUNDS]\n"
         "%s\n"
         "================================================================================\n",
         r->system_health_score,
         r->platform_name, r->firmware_vendor, r->firmware_revision,
+        r->mac_model, r->mac_model_name,
+        r->macos_compat_summary,
+        r->oclp_patchable ? "Supported (OpenCore Legacy Patcher)" : "Native / Not Required",
         r->execution_policy,
         r->cpu_model,
         r->physical_cores, r->logical_threads, r->base_clock_mhz,
@@ -144,15 +177,15 @@ void ov_diagnostics_format_text(const ov_diagnostic_report_t *r, char *out_buf, 
         r->has_avx2 ? "YES" : "NO", r->has_aesni ? "YES" : "NO",
         r->cpu_arm64_to_x64_supported ? "YES" : "NO", r->cpu_x64_recomp_supported ? "YES" : "NO",
         r->gpu_model, r->pci_vendor_id, r->pci_device_id,
-        r->vram_bytes / (1024 * 1024), r->max_texture_dimension,
+        (unsigned long long)(r->vram_bytes / (1024 * 1024)), r->max_texture_dimension,
         r->supports_compute ? "YES" : "NO", r->supports_tessellation ? "YES" : "NO",
         r->api_summary,
-        r->total_ram_bytes / (1024 * 1024),
-        r->free_ram_bytes / (1024 * 1024),
-        r->allocated_ram_bytes / 1024,
+        (unsigned long long)(r->total_ram_bytes / (1024 * 1024)),
+        (unsigned long long)(r->free_ram_bytes / (1024 * 1024)),
+        (unsigned long long)(r->allocated_ram_bytes / 1024),
         r->memory_leaks_detected ? "LEAKS DETECTED" : "CLEAN (0 Leaks)",
         r->cache_generation,
-        r->total_cache_entries, r->total_cache_size_bytes / 1024,
+        r->total_cache_entries, (unsigned long long)(r->total_cache_size_bytes / 1024),
         r->cache_hit_rate_pct,
         r->silicon_quirks_summary
     );
@@ -167,6 +200,10 @@ void ov_diagnostics_format_json(const ov_diagnostic_report_t *r, char *out_buf, 
         "    \"health_score\": %u,\n"
         "    \"platform\": \"%s\",\n"
         "    \"firmware\": \"%s\",\n"
+        "    \"mac_model\": \"%s\",\n"
+        "    \"mac_name\": \"%s\",\n"
+        "    \"macos_compatibility\": \"%s\",\n"
+        "    \"oclp_patchable\": %s,\n"
         "    \"policy\": \"%s\",\n"
         "    \"cpu\": {\n"
         "      \"model\": \"%s\",\n"
@@ -180,9 +217,14 @@ void ov_diagnostics_format_json(const ov_diagnostic_report_t *r, char *out_buf, 
         "    \"gpu\": {\n"
         "      \"model\": \"%s\",\n"
         "      \"pci_id\": \"0x%04x:0x%04x\",\n"
-        "      \"vram_bytes\": %lu,\n"
+        "      \"vram_bytes\": %llu,\n"
         "      \"max_texture\": %u,\n"
         "      \"compute\": %s\n"
+        "    },\n"
+        "    \"memory\": {\n"
+        "      \"total_ram_bytes\": %llu,\n"
+        "      \"free_ram_bytes\": %llu,\n"
+        "      \"leaks_detected\": %s\n"
         "    },\n"
         "    \"cache\": {\n"
         "      \"generation\": %u,\n"
@@ -192,11 +234,17 @@ void ov_diagnostics_format_json(const ov_diagnostic_report_t *r, char *out_buf, 
         "  }\n"
         "}\n",
         r->system_health_score,
-        r->platform_name, r->firmware_vendor, r->execution_policy,
+        r->platform_name, r->firmware_vendor,
+        r->mac_model, r->mac_model_name,
+        r->macos_compat_summary,
+        r->oclp_patchable ? "true" : "false",
+        r->execution_policy,
         r->cpu_model, r->physical_cores, r->logical_threads, r->base_clock_mhz,
         r->has_sse42 ? "true" : "false", r->has_avx ? "true" : "false", r->has_avx2 ? "true" : "false",
-        r->gpu_model, r->pci_vendor_id, r->pci_device_id, r->vram_bytes, r->max_texture_dimension,
+        r->gpu_model, r->pci_vendor_id, r->pci_device_id, (unsigned long long)r->vram_bytes, r->max_texture_dimension,
         r->supports_compute ? "true" : "false",
+        (unsigned long long)r->total_ram_bytes, (unsigned long long)r->free_ram_bytes,
+        r->memory_leaks_detected ? "true" : "false",
         r->cache_generation, r->total_cache_entries, r->cache_hit_rate_pct
     );
 }
@@ -256,7 +304,8 @@ ov_status_t ov_diagnostics_export_html(const ov_diagnostic_report_t *r, const ch
         "    <div class=\"card\">\n"
         "      <h1>OpenVintage Pre-Boot Diagnostic Audit</h1>\n"
         "      <div class=\"score-box\">Health Score: %u / 100</div>\n"
-        "      <p style=\"color:#cbd5e1; margin-top:12px;\">Platform: %s | %s</p>\n"
+        "      <p style=\"color:#cbd5e1; margin-top:12px;\">Platform: %s | Model: %s (%s)</p>\n"
+        "      <p style=\"color:#38bdf8; margin-top:4px;\">%s</p>\n"
         "    </div>\n"
         "    <div class=\"grid\">\n"
         "      <div class=\"card\">\n"
@@ -269,7 +318,7 @@ ov_status_t ov_diagnostics_export_html(const ov_diagnostic_report_t *r, const ch
         "      <div class=\"card\">\n"
         "        <h2>Graphics (GPU)</h2>\n"
         "        <div class=\"prop\"><span class=\"label\">Model:</span> <span class=\"val\">%s</span></div>\n"
-        "        <div class=\"prop\"><span class=\"label\">VRAM:</span> <span class=\"val\">%lu MB</span></div>\n"
+        "        <div class=\"prop\"><span class=\"label\">VRAM:</span> <span class=\"val\">%llu MB</span></div>\n"
         "        <div class=\"prop\"><span class=\"label\">Max Texture:</span> <span class=\"val\">%upx</span></div>\n"
         "        <div class=\"prop\"><span class=\"label\">API Status:</span> <span class=\"val\">%s</span></div>\n"
         "      </div>\n"
@@ -283,10 +332,11 @@ ov_status_t ov_diagnostics_export_html(const ov_diagnostic_report_t *r, const ch
         "  </div>\n"
         "</body>\n"
         "</html>\n",
-        r->system_health_score, r->platform_name, r->firmware_vendor,
+        r->system_health_score, r->platform_name, r->mac_model, r->mac_model_name,
+        r->macos_compat_summary,
         r->cpu_model, r->physical_cores, r->logical_threads,
         r->has_avx ? "Yes" : "No", r->has_avx2 ? "Yes" : "No",
-        r->gpu_model, r->vram_bytes / (1024 * 1024), r->max_texture_dimension, r->api_summary,
+        r->gpu_model, (unsigned long long)(r->vram_bytes / (1024 * 1024)), r->max_texture_dimension, r->api_summary,
         r->cache_generation, r->cache_hit_rate_pct, r->silicon_quirks_summary
     );
 

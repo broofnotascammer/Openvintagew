@@ -1,5 +1,6 @@
 /**
- * OpenVintage Pre-Boot Simulator - OVIR-CPU Translation Engine Implementation (Phase 4)
+ * OpenVintage Pre-Boot Simulator - OVIR-CPU Translation Engine Implementation
+ * Architecture-agnostic intermediate representation, optimizer passes, execution, and JIT cache.
  */
 
 #include "ov_cpu_engine.h"
@@ -10,31 +11,14 @@
 static ov_cpu_jit_cache_t jit_cache = {0};
 
 ov_status_t ov_cpu_engine_init(void) {
-    ov_log_info("Initializing OVIR-CPU Translation Engine...");
     memset(&jit_cache, 0, sizeof(jit_cache));
-
-    /* Pre-populate JIT cache with simulated hot blocks */
-    jit_cache.entries[0].guest_pc = 0x1000;
-    jit_cache.entries[0].code_hash = 0xAA77BB22CC114499ULL;
-    jit_cache.entries[0].native_code_size = 128;
-    jit_cache.entries[0].execution_count = 42;
-    jit_cache.entries[0].is_valid = true;
-
-    jit_cache.entries[1].guest_pc = 0x2000;
-    jit_cache.entries[1].code_hash = 0x5566778899AABBCCULL;
-    jit_cache.entries[1].native_code_size = 256;
-    jit_cache.entries[1].execution_count = 120;
-    jit_cache.entries[1].is_valid = true;
-
-    jit_cache.entry_count = 2;
-    jit_cache.cache_hits = 150;
-    jit_cache.cache_misses = 12;
-
+    ov_log_info("OVIR-CPU Translation Engine initialized (JIT cache reset)");
     return OV_SUCCESS;
 }
 
 void ov_cpu_engine_cleanup(void) {
     memset(&jit_cache, 0, sizeof(jit_cache));
+    ov_log_info("OVIR-CPU Translation Engine cleaned up");
 }
 
 /* Build Sample Programs */
@@ -45,7 +29,7 @@ ov_status_t ov_cpu_build_sample_program(int sample_id, ov_cpu_program_t *out_pro
     if (sample_id == 0) {
         /* Sample 0: ARM64 Compute Kernel -> OVIR IR */
         out_program->program_id = 1;
-        strcpy(out_program->program_name, "arm64_matrix_multiply_kernel");
+        snprintf(out_program->program_name, sizeof(out_program->program_name), "arm64_matrix_multiply_kernel");
         out_program->source_arch = 1; /* ARM64 */
         out_program->target_arch = 2; /* x86_64 */
         out_program->block_count = 2;
@@ -113,16 +97,10 @@ ov_status_t ov_cpu_build_sample_program(int sample_id, ov_cpu_program_t *out_pro
         b1->successor_count = 0;
 
         i = 0;
-        b1->instructions[i].opcode = OV_CPU_OP_LOAD;
+        b1->instructions[i].opcode = OV_CPU_OP_ADD;
         b1->instructions[i].bit_width = 64;
         b1->instructions[i].dst = (ov_cpu_operand_t){OV_CPU_OPND_REG, 6, 0, 0, 0};
-        b1->instructions[i].src1 = (ov_cpu_operand_t){OV_CPU_OPND_MEM, 1, 0, 0, 0};
-        i++;
-
-        b1->instructions[i].opcode = OV_CPU_OP_VEC_ADD;
-        b1->instructions[i].bit_width = 128;
-        b1->instructions[i].dst = (ov_cpu_operand_t){OV_CPU_OPND_REG, 7, 0, 0, 0};
-        b1->instructions[i].src1 = (ov_cpu_operand_t){OV_CPU_OPND_REG, 6, 0, 0, 0};
+        b1->instructions[i].src1 = (ov_cpu_operand_t){OV_CPU_OPND_REG, 3, 0, 0, 0};
         b1->instructions[i].src2 = (ov_cpu_operand_t){OV_CPU_OPND_REG, 5, 0, 0, 0};
         i++;
 
@@ -134,7 +112,7 @@ ov_status_t ov_cpu_build_sample_program(int sample_id, ov_cpu_program_t *out_pro
     } else {
         /* Sample 1: AVX2 SIMD Filter Kernel */
         out_program->program_id = 2;
-        strcpy(out_program->program_name, "avx2_video_filter_vectorized");
+        snprintf(out_program->program_name, sizeof(out_program->program_name), "avx2_video_filter_vectorized");
         out_program->source_arch = 2; /* x86_64 */
         out_program->target_arch = 2;
         out_program->block_count = 1;
@@ -188,7 +166,6 @@ ov_status_t ov_cpu_optimize_program(
     for (uint32_t b = 0; b < program->block_count; b++) {
         ov_cpu_basic_block_t *block = &program->blocks[b];
 
-        /* Map register values for simple constant propagation within block */
         int64_t reg_imm_map[32];
         bool    reg_is_const[32];
         memset(reg_is_const, 0, sizeof(reg_is_const));
@@ -265,13 +242,11 @@ ov_status_t ov_cpu_optimize_program(
                         }
 
                         if (next->dst.kind == OV_CPU_OPND_REG && next->dst.reg_index == target_reg) {
-                            /* Overwritten before ever read! */
                             break;
                         }
                     }
 
                     if (!read_before_overwrite && i + 1 < block->instr_count) {
-                        /* Check if next instruction immediately overwrites */
                         ov_cpu_instruction_t *next = &block->instructions[i + 1];
                         if (next->dst.kind == OV_CPU_OPND_REG && next->dst.reg_index == target_reg) {
                             instr->is_dead = true;
@@ -299,7 +274,114 @@ ov_status_t ov_cpu_optimize_program(
     return OV_SUCCESS;
 }
 
-/* JIT Cache Simulation */
+static int64_t resolve_val(const ov_cpu_operand_t *opnd, const int64_t *regs, size_t num_regs) {
+    if (!opnd) return 0;
+    if (opnd->kind == OV_CPU_OPND_IMM) return opnd->imm_value;
+    if (opnd->kind == OV_CPU_OPND_REG && opnd->reg_index < num_regs) return regs[opnd->reg_index];
+    return 0;
+}
+
+ov_status_t ov_cpu_execute_program(
+    const ov_cpu_program_t *program,
+    int64_t                *registers,
+    size_t                  num_regs,
+    uint64_t               *out_cycles
+) {
+    if (!program || !registers || num_regs == 0) return OV_ERROR_INVALID_PARAM;
+
+    uint64_t cycles = 0;
+    uint32_t current_block = 0;
+
+    while (current_block < program->block_count) {
+        const ov_cpu_basic_block_t *bb = &program->blocks[current_block];
+        bool jumped = false;
+
+        for (uint32_t i = 0; i < bb->instr_count; i++) {
+            const ov_cpu_instruction_t *ins = &bb->instructions[i];
+            if (ins->is_dead) continue;
+
+            uint16_t dst_reg = (ins->dst.kind == OV_CPU_OPND_REG) ? ins->dst.reg_index : 0;
+            int64_t v1 = resolve_val(&ins->src1, registers, num_regs);
+            int64_t v2 = resolve_val(&ins->src2, registers, num_regs);
+
+            switch (ins->opcode) {
+                case OV_CPU_OP_MOV:
+                    if (dst_reg < num_regs) registers[dst_reg] = v1;
+                    cycles += 1;
+                    break;
+                case OV_CPU_OP_ADD:
+                    if (dst_reg < num_regs) registers[dst_reg] = v1 + v2;
+                    cycles += 1;
+                    break;
+                case OV_CPU_OP_SUB:
+                    if (dst_reg < num_regs) registers[dst_reg] = v1 - v2;
+                    cycles += 1;
+                    break;
+                case OV_CPU_OP_MUL:
+                    if (dst_reg < num_regs) registers[dst_reg] = v1 * v2;
+                    cycles += 3;
+                    break;
+                case OV_CPU_OP_DIV:
+                    if (dst_reg < num_regs) registers[dst_reg] = (v2 != 0) ? (v1 / v2) : 0;
+                    cycles += 15;
+                    break;
+                case OV_CPU_OP_AND:
+                    if (dst_reg < num_regs) registers[dst_reg] = v1 & v2;
+                    cycles += 1;
+                    break;
+                case OV_CPU_OP_OR:
+                    if (dst_reg < num_regs) registers[dst_reg] = v1 | v2;
+                    cycles += 1;
+                    break;
+                case OV_CPU_OP_XOR:
+                    if (dst_reg < num_regs) registers[dst_reg] = v1 ^ v2;
+                    cycles += 1;
+                    break;
+                case OV_CPU_OP_SHL:
+                    if (dst_reg < num_regs) registers[dst_reg] = v1 << (v2 & 63);
+                    cycles += 1;
+                    break;
+                case OV_CPU_OP_SHR:
+                    if (dst_reg < num_regs) registers[dst_reg] = v1 >> (v2 & 63);
+                    cycles += 1;
+                    break;
+                case OV_CPU_OP_VEC_ADD:
+                    if (dst_reg < num_regs) registers[dst_reg] = v1 + v2;
+                    cycles += 2;
+                    break;
+                case OV_CPU_OP_VEC_MUL:
+                    if (dst_reg < num_regs) registers[dst_reg] = v1 * v2;
+                    cycles += 4;
+                    break;
+                case OV_CPU_OP_JMP:
+                    if (bb->successor_count > 0) {
+                        current_block = bb->successors[0];
+                        jumped = true;
+                    }
+                    cycles += 1;
+                    break;
+                case OV_CPU_OP_RET:
+                    cycles += 1;
+                    if (out_cycles) *out_cycles = cycles;
+                    return OV_SUCCESS;
+                default:
+                    cycles += 1;
+                    break;
+            }
+
+            if (jumped) break;
+        }
+
+        if (!jumped) {
+            current_block++;
+        }
+    }
+
+    if (out_cycles) *out_cycles = cycles;
+    return OV_SUCCESS;
+}
+
+/* JIT Cache */
 ov_status_t ov_cpu_jit_lookup(uint64_t guest_pc, uint64_t code_hash, bool *out_hit) {
     if (!out_hit) return OV_ERROR_INVALID_PARAM;
     *out_hit = false;
@@ -368,10 +450,10 @@ static void format_operand(const ov_cpu_operand_t *opnd, char *out, size_t sz) {
             snprintf(out, sz, "r%u", opnd->reg_index);
             break;
         case OV_CPU_OPND_IMM:
-            snprintf(out, sz, "#%ld", opnd->imm_value);
+            snprintf(out, sz, "#%ld", (long)opnd->imm_value);
             break;
         case OV_CPU_OPND_MEM:
-            snprintf(out, sz, "[r%u + %ld]", opnd->reg_index, opnd->mem_disp);
+            snprintf(out, sz, "[r%u + %ld]", opnd->reg_index, (long)opnd->mem_disp);
             break;
         case OV_CPU_OPND_LABEL:
             snprintf(out, sz, "L%u", opnd->label_id);
@@ -394,7 +476,7 @@ void ov_cpu_format_program_ir(const ov_cpu_program_t *program, char *out_buf, si
 
     for (uint32_t b = 0; b < program->block_count; b++) {
         const ov_cpu_basic_block_t *bb = &program->blocks[b];
-        pos += snprintf(out_buf + pos, max_len - pos, "BB_%u: ; 0x%08lx\n", bb->block_id, bb->start_pc);
+        pos += snprintf(out_buf + pos, max_len - pos, "BB_%u: ; 0x%08lx\n", bb->block_id, (unsigned long)bb->start_pc);
 
         for (uint32_t i = 0; i < bb->instr_count; i++) {
             const ov_cpu_instruction_t *ins = &bb->instructions[i];

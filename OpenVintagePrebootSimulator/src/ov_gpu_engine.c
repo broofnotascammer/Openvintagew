@@ -166,8 +166,8 @@ ov_status_t ov_gpu_simulate_shader_translation(
 
     if (shader_preset == 0) {
         /* Metal MSL -> OpenGL 4.0 Core / Gen7 EU */
-        strcpy(out_trans->source_api, "Metal Shading Language (MSL 2.0)");
-        strcpy(out_trans->target_backend, "OpenGL GLSL 4.0 / Intel Gen7 EU");
+        snprintf(out_trans->source_api, sizeof(out_trans->source_api), "Metal Shading Language (MSL 2.0)");
+        snprintf(out_trans->target_backend, sizeof(out_trans->target_backend), "OpenGL GLSL 4.0 / Intel Gen7 EU");
         strcpy(out_trans->source_code,
                "#include <metal_stdlib>\n"
                "using namespace metal;\n\n"
@@ -199,11 +199,11 @@ ov_status_t ov_gpu_simulate_shader_translation(
         out_trans->instruction_count = 14;
         out_trans->register_spill_count = 0;
         out_trans->requires_workaround = false;
-        strcpy(out_trans->workaround_reason, "Direct translation successful; 0 spills.");
+        snprintf(out_trans->workaround_reason, sizeof(out_trans->workaround_reason), "Direct translation successful; 0 spills.");
     } else {
         /* Vulkan SPIR-V -> OpenGL GLSL */
-        strcpy(out_trans->source_api, "Vulkan SPIR-V 1.2");
-        strcpy(out_trans->target_backend, "OpenGL GLSL 4.3 Core");
+        snprintf(out_trans->source_api, sizeof(out_trans->source_api), "Vulkan SPIR-V 1.2");
+        snprintf(out_trans->target_backend, sizeof(out_trans->target_backend), "OpenGL GLSL 4.3 Core");
         strcpy(out_trans->source_code,
                "; SPIR-V\n"
                "; Version: 1.2\n"

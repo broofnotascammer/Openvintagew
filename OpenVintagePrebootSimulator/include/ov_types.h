@@ -1,6 +1,6 @@
 /**
  * OpenVintage Pre-Boot Simulator - Core Types & Enumerations
- * Bridges host simulator environment with OpenVintage Phase 1-5 Architecture.
+ * Bridges host simulator environment with OpenVintage Architecture.
  */
 
 #ifndef OV_TYPES_H
@@ -27,27 +27,92 @@ typedef enum {
 
 const char* ov_status_to_string(ov_status_t status);
 
-/* CPU Architectures */
+/* Hardware Detection / Simulation Origin */
 typedef enum {
-    OV_CPU_INTEL_IVY_BRIDGE = 0,   /* Gen7 host (e.g. Core i7-3770, SSE4.2, AVX) */
-    OV_CPU_INTEL_HASWELL = 1,      /* Gen7.5 host (e.g. Core i7-4770, AVX2, FMA) */
-    OV_CPU_INTEL_MODERN = 2,       /* Modern Intel (Skylake/Tiger Lake/etc.) */
-    OV_CPU_AMD_ZEN = 3,            /* AMD Zen architecture */
-    OV_CPU_ARM64 = 4,              /* ARM64 (Apple Silicon / Cortex-A7x) */
-    OV_CPU_UNKNOWN = 5
+    OV_HW_SOURCE_UNKNOWN = 0,
+    OV_HW_SOURCE_HOST_DETECTED = 1,     /* Real physical/virtual host hardware detected */
+    OV_HW_SOURCE_SIMULATED_PROFILE = 2, /* Simulated hardware profile */
+    OV_HW_SOURCE_INFERRED_FALLBACK = 3  /* Heuristic fallback or default */
+} ov_hw_source_t;
+
+const char* ov_hw_source_to_string(ov_hw_source_t source);
+
+/* CPU Family Architectures */
+typedef enum {
+    OV_CPU_INTEL_CORE_DUO = 0,    /* 32-bit x86 Yonah (e.g. MacBook Pro Early 2006) */
+    OV_CPU_INTEL_CORE2_DUO = 1,   /* 64-bit Merom / Penryn (e.g. MacBook Pro 2007-2008) */
+    OV_CPU_INTEL_XEON_CORE = 2,   /* Woodcrest / Harpertown (Mac Pro 2006/2008) */
+    OV_CPU_INTEL_NEHALEM = 3,     /* Nehalem / Westmere (MacPro 2009/2010/2012, Core i5/i7) */
+    OV_CPU_INTEL_SANDY_BRIDGE = 4,/* Sandy Bridge 2nd Gen (e.g. MacBook Pro 2011) */
+    OV_CPU_INTEL_IVY_BRIDGE = 5,  /* Ivy Bridge 3rd Gen (e.g. MacBookPro9,1 2012, i7-3615QM) */
+    OV_CPU_INTEL_HASWELL = 6,     /* Haswell 4th Gen (e.g. MacBookPro11,3 2013-2014) */
+    OV_CPU_INTEL_BROADWELL = 7,   /* Broadwell 5th Gen (e.g. MacBookPro12,1 2015) */
+    OV_CPU_INTEL_SKYLAKE = 8,     /* Skylake 6th Gen (e.g. MacBookPro13,3 2016) */
+    OV_CPU_INTEL_KABY_LAKE = 9,   /* Kaby Lake 7th Gen (e.g. MacBookPro14,3 2017) */
+    OV_CPU_INTEL_COFFEE_LAKE = 10,/* Coffee Lake 8th/9th Gen (e.g. MacBookPro16,1 2019) */
+    OV_CPU_INTEL_COMET_LAKE = 11, /* Comet Lake 10th Gen (e.g. iMac20,1 2020) */
+    OV_CPU_INTEL_CASCADE_LAKE = 12,/* Cascade Lake Xeon W (MacPro7,1 2019) */
+    OV_CPU_AMD_ZEN = 13,          /* AMD Zen / Host AMD */
+    OV_CPU_ARM64_M1 = 14,         /* Apple Silicon M1 (M1, M1 Pro, M1 Max, M1 Ultra) */
+    OV_CPU_ARM64_M2 = 15,         /* Apple Silicon M2 (M2, M2 Pro, M2 Max, M2 Ultra) */
+    OV_CPU_ARM64_M3 = 16,         /* Apple Silicon M3 (M3, M3 Pro, M3 Max) */
+    OV_CPU_ARM64_GENERIC = 17,    /* Generic ARM64 */
+    OV_CPU_UNKNOWN = 18
 } ov_cpu_type_t;
 
-/* GPU Hardware Families */
+const char* ov_cpu_type_to_string(ov_cpu_type_t type);
+
+/* GPU Hardware Architecture Generations */
 typedef enum {
-    OV_GPU_INTEL_GEN7_HD4000 = 0,  /* Intel Gen7 HD 4000 (Ivy Bridge, 16 EUs) */
-    OV_GPU_INTEL_GEN75_HD4600 = 1, /* Intel Gen7.5 HD 4600 / Iris 5100/5200 (Haswell, 20-40 EUs) */
-    OV_GPU_INTEL_IRIS_XE = 2,      /* Modern Intel Iris Xe (96 EUs) */
-    OV_GPU_NVIDIA_GEFORCE = 3,     /* Nvidia Kepler/Maxwell/Ampere */
-    OV_GPU_AMD_RADEON = 4,         /* AMD GCN / RDNA */
-    OV_GPU_APPLE_SILICON = 5,      /* Apple M-series GPU */
-    OV_GPU_SOFTWARE_RASTERIZER = 6,/* CPU SoftPipe / llvmpipe fallback */
+    OV_GPU_ARCH_UNKNOWN = 0,
+    OV_GPU_ARCH_INTEL_GEN3 = 1,        /* GMA 950 / X3100 */
+    OV_GPU_ARCH_INTEL_GEN6 = 2,        /* HD 3000 (Sandy Bridge) */
+    OV_GPU_ARCH_INTEL_GEN7 = 3,        /* HD 4000 (Ivy Bridge) */
+    OV_GPU_ARCH_INTEL_GEN75 = 4,       /* HD 4600 / Iris 5100 / Iris Pro 5200 (Haswell) */
+    OV_GPU_ARCH_INTEL_GEN8 = 5,        /* HD 6000 / Iris 6100 / Iris Pro 6200 (Broadwell) */
+    OV_GPU_ARCH_INTEL_GEN9 = 6,        /* HD 515 / 530, Iris 540 / 550 (Skylake) */
+    OV_GPU_ARCH_INTEL_GEN95 = 7,       /* UHD 630 (Kaby/Coffee/Comet Lake) */
+    OV_GPU_ARCH_INTEL_GEN11 = 8,       /* Iris Plus (Ice Lake) */
+    OV_GPU_ARCH_INTEL_GEN12_IRIS_XE = 9,/* Iris Xe (Tiger Lake) */
+    OV_GPU_ARCH_NVIDIA_TESLA = 10,     /* GeForce 8600M GT, 9400M, 9600M GT, GT 120 */
+    OV_GPU_ARCH_NVIDIA_FERMI = 11,     /* GeForce 320M, 330M */
+    OV_GPU_ARCH_NVIDIA_KEPLER = 12,    /* GeForce GT 650M (GK107), GT 750M */
+    OV_GPU_ARCH_NVIDIA_MAXWELL = 13,   /* GeForce 900 series */
+    OV_GPU_ARCH_NVIDIA_PASCAL = 14,    /* GeForce 1000 series */
+    OV_GPU_ARCH_AMD_TERASCALE_1 = 15,  /* Radeon X1600, HD 2400/2600, HD 4870 */
+    OV_GPU_ARCH_AMD_TERASCALE_2 = 16,  /* Radeon HD 5770, HD 5870, HD 6750M, HD 6970M */
+    OV_GPU_ARCH_AMD_GCN_1_4 = 17,      /* FirePro D300/D500/D700, Radeon Pro 450/455/460/555/560/580X */
+    OV_GPU_ARCH_AMD_GCN_5_VEGA = 18,   /* Vega 48, Vega 56, Vega 64, Vega II, Vega II Duo */
+    OV_GPU_ARCH_AMD_RDNA_1_3 = 19,     /* Radeon Pro 5300M/5500M, W5700X, W6800X */
+    OV_GPU_ARCH_APPLE_SILICON_M1 = 20, /* Apple Silicon M1 GPU (8-core / 16-core / 32-core / 64-core) */
+    OV_GPU_ARCH_APPLE_SILICON_M2 = 21, /* Apple Silicon M2 GPU (10-core / 19-core / 38-core / 76-core) */
+    OV_GPU_ARCH_APPLE_SILICON_M3 = 22, /* Apple Silicon M3 GPU (Hardware Ray Tracing, Dynamic Caching) */
+    OV_GPU_ARCH_SOFTWARE_FALLBACK = 23 /* CPU SoftPipe / llvmpipe fallback */
+} ov_gpu_arch_t;
+
+const char* ov_gpu_arch_to_string(ov_gpu_arch_t arch);
+
+/* GPU Family Legacy Types */
+typedef enum {
+    OV_GPU_INTEL_GEN7_HD4000 = 0,
+    OV_GPU_INTEL_GEN75_HD4600 = 1,
+    OV_GPU_INTEL_IRIS_XE = 2,
+    OV_GPU_NVIDIA_GEFORCE = 3,
+    OV_GPU_AMD_RADEON = 4,
+    OV_GPU_APPLE_SILICON = 5,
+    OV_GPU_SOFTWARE_RASTERIZER = 6,
     OV_GPU_NONE = 7
 } ov_gpu_type_t;
+
+/* Metal Support Level */
+typedef enum {
+    OV_METAL_NONE = 0,
+    OV_METAL_1 = 1,    /* Metal 1 (macOS 10.11+, basic compute, Intel HD 4000, Kepler, GCN) */
+    OV_METAL_2 = 2,    /* Metal 2 (macOS 10.13+, argument buffers, tessellation) */
+    OV_METAL_3 = 3     /* Metal 3 (macOS 13+, fast resource loading, mesh shaders, Apple Silicon / modern AMD) */
+} ov_metal_support_t;
+
+const char* ov_metal_support_to_string(ov_metal_support_t level);
 
 /* Graphics APIs */
 typedef enum {
@@ -57,23 +122,24 @@ typedef enum {
     OV_API_DIRECTX = 4
 } ov_api_type_t;
 
-/* Resolver Decisions (Phase 2 & Phase 5) */
+/* Resolver Decisions */
 typedef enum {
-    OV_RESOLUTION_NATIVE = 1,       /* Target silicon natively satisfies workload */
-    OV_RESOLUTION_TRANSLATED = 2,   /* Workload transformed through OVIR layer */
-    OV_RESOLUTION_SIMPLIFIED = 3,   /* Clamped texture/shader for VRAM compatibility */
-    OV_RESOLUTION_FALLBACK = 4,     /* Workload executed on CPU software emulation */
-    OV_RESOLUTION_UNSUPPORTED = 5   /* Workload cannot be executed */
+    OV_RESOLUTION_NATIVE = 1,          /* Target silicon natively satisfies workload */
+    OV_RESOLUTION_JIT_TRANSLATED = 2,  /* Workload dynamically translated (e.g. ARM64->x86 or SPIRV->GLSL) */
+    OV_RESOLUTION_RECOMPILED = 3,      /* Workload statically recompiled */
+    OV_RESOLUTION_SIMPLIFIED = 4,      /* Clamped texture/shader for VRAM or HW limit compatibility */
+    OV_RESOLUTION_FALLBACK = 5,        /* Workload executed on CPU software emulation */
+    OV_RESOLUTION_UNSUPPORTED = 6      /* Workload cannot be executed on target architecture */
 } ov_resolution_decision_t;
 
-/* Execution Modes (Phase 2 legacy mapping) */
+/* Execution Modes (legacy mapping) */
 typedef enum {
     OV_EXEC_NATIVE = 0,
     OV_EXEC_TRANSLATED = 1,
     OV_EXEC_FALLBACK = 2
 } ov_exec_mode_t;
 
-/* Resource Performance Profiles (Phase 5) */
+/* Resource Performance Profiles */
 typedef enum {
     OV_PROFILE_BALANCED = 1,
     OV_PROFILE_PERFORMANCE = 2,
@@ -81,7 +147,14 @@ typedef enum {
     OV_PROFILE_BATTERY_LOW_POWER = 4
 } ov_resource_profile_t;
 
-/* Cache Tiers (Phase 5) */
+/* Resource Pressure Level */
+typedef enum {
+    OV_RESOURCE_PRESSURE_NORMAL = 0,
+    OV_RESOURCE_PRESSURE_MODERATE = 1,
+    OV_RESOURCE_PRESSURE_CRITICAL = 2
+} ov_resource_pressure_t;
+
+/* Cache Tiers */
 typedef enum {
     OV_CACHE_TIER_CPU_TRANSLATION = 1,
     OV_CACHE_TIER_SHADER = 2,
@@ -98,6 +171,16 @@ typedef enum {
     OV_INVALIDATE_MEMORY_PRESSURE = 4,
     OV_INVALIDATE_INTEGRITY_FAILURE = 5
 } ov_invalidate_reason_t;
+
+/* macOS Version Compatibility Rating */
+typedef enum {
+    OV_MACOS_SUPPORTED_NATIVE = 1,        /* Hardware meets all requirements natively */
+    OV_MACOS_SUPPORTED_WITH_PATCHES = 2,  /* Runs with OpenCore Legacy Patcher / patches */
+    OV_MACOS_SUPPORTED_SIMULATED = 3,     /* Runs under emulation / translation */
+    OV_MACOS_UNSUPPORTED = 4              /* Cannot run on this hardware */
+} ov_macos_compat_rating_t;
+
+const char* ov_macos_compat_rating_to_string(ov_macos_compat_rating_t rating);
 
 /* Compatibility Modes */
 typedef enum {
@@ -118,7 +201,7 @@ typedef enum {
     OV_WORKLOAD_CLASS_MEMORY_OPS = 4
 } ov_workload_class_t;
 
-/* Workload descriptor (Phase 2 legacy) */
+/* Workload descriptor */
 typedef enum {
     OV_WORKLOAD_COMPUTE = 0,
     OV_WORKLOAD_GRAPHICS = 1,
@@ -135,7 +218,7 @@ typedef struct {
     bool requires_sync;
 } ov_workload_t;
 
-/* Resolution decision (Phase 2 legacy) */
+/* Resolution decision */
 typedef struct {
     ov_exec_mode_t mode;
     uint32_t estimated_cost;

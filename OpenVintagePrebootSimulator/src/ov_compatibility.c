@@ -217,7 +217,7 @@ ov_status_t ov_compatibility_evaluate(const ov_compat_record_t *record, ov_compa
     /* Check CPU architecture */
     if (record->required_cpu_arch == 1) {
         /* ARM64 required */
-        if (cpu->type != OV_CPU_ARM64) {
+        if (cpu->type < OV_CPU_ARM64_M1 || cpu->type > OV_CPU_ARM64_GENERIC) {
             out_eval->cpu_translation_required = true;
             out_eval->selected_mode = OV_COMPAT_MODE_TRANSLATED_CPU;
             out_eval->expected_overhead_factor += 40;
