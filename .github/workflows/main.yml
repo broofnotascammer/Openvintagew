@@ -1,4 +1,3 @@
-
 name: OpenVintage macOS Intel Build & Test
 
 on:
@@ -15,6 +14,35 @@ permissions:
   contents: read
 
 jobs:
+  compliance:
+    name: License and repository compliance
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout OpenVintage
+        uses: actions/checkout@v6
+
+      - name: Verify project license files
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s LICENSE
+          test -s LICENSES/BSD-2-Clause-Patent.txt
+          test -s THIRD_PARTY.md
+          test -s SECURITY.md
+          grep -q 'BSD-2-Clause-Patent' LICENSE
+          grep -q 'BSD-2-Clause-Patent' LICENSES/BSD-2-Clause-Patent.txt
+          grep -q 'TianoCore EDK II' THIRD_PARTY.md
+
+      - name: Check for accidental secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git grep -n -E '(AIza[0-9A-Za-z_-]{20,}|BEGIN (RSA|OPENSSH|EC|DSA) PRIVATE KEY|ghp_[0-9A-Za-z]{20,})' -- ':!*.md'; then
+            echo 'Potential credential material found in tracked source files.'
+            exit 1
+          fi
+
   macos-intel:
     name: macOS Intel x86_64 — Catalina-compatible
     runs-on: macos-15-intel
@@ -26,20 +54,16 @@ jobs:
       - name: Show runner information
         shell: bash
         run: |
-          set -e
-
+          set -euo pipefail
           echo "=== Runner ==="
           uname -a
           sw_vers
-
           echo
           echo "=== Architecture ==="
           uname -m
-
           echo
           echo "=== Compiler ==="
           clang --version
-
           echo
           echo "=== SDK ==="
           xcrun --show-sdk-path
@@ -48,70 +72,47 @@ jobs:
       - name: Verify repository revision
         shell: bash
         run: |
-          set -e
-
+          set -euo pipefail
           echo "=== Git revision ==="
           git log -1 --oneline
           git rev-parse HEAD
-
-          echo
-          echo "Expected current main revision:"
-          echo "7a197adc076d0dd4571e66396fb9c6e37489c45a"
+          if [ -n "${GITHUB_SHA:-}" ]; then
+            test "$(git rev-parse HEAD)" = "${GITHUB_SHA}"
+          fi
 
       - name: Clean previous simulator outputs
         shell: bash
         run: |
-          set -e
+          set -euo pipefail
           cd OpenVintagePrebootSimulator
           make -C platform/macos -f Makefile.macos clean
 
       - name: Build macOS Intel simulator
         shell: bash
         run: |
-          set -e
-
+          set -euo pipefail
           cd OpenVintagePrebootSimulator
-
           make macos-intel
 
       - name: Verify Intel binary
         shell: bash
         run: |
-          set -e
-
+          set -euo pipefail
           BINARY="OpenVintagePrebootSimulator/bin/openvintage-simulator-macos-x86_64"
-
           test -f "$BINARY"
           test -x "$BINARY"
-
-          echo "=== File ==="
           file "$BINARY"
-
-          echo
-          echo "=== Architecture ==="
           lipo -info "$BINARY"
-
-          echo
-          echo "=== Linked frameworks ==="
           otool -L "$BINARY"
-
-          echo
-          echo "=== Mach-O deployment information ==="
           otool -l "$BINARY" | grep -A4 -E "LC_BUILD_VERSION|LC_VERSION_MIN_MACOSX" || true
-
-          echo
-          echo "=== Binary size ==="
           ls -lh "$BINARY"
 
       - name: Build native macOS test runner
         shell: bash
         run: |
-          set -e
-
+          set -euo pipefail
           cd OpenVintagePrebootSimulator
-
           mkdir -p build/macos-ci bin
-
           clang \
             -Wall \
             -Wextra \
@@ -147,31 +148,25 @@ jobs:
             -framework Metal \
             -framework OpenGL
 
-      - name: Run native macOS test runner
+      - name: Run native macOS API test runner
         shell: bash
         run: |
-          set -e
-
+          set -euo pipefail
           cd OpenVintagePrebootSimulator
-
           ./bin/test_runner_macos-x86_64
 
       - name: Run simulator help / CLI smoke test
         shell: bash
         run: |
-          set -e
-
+          set -euo pipefail
           cd OpenVintagePrebootSimulator
-
           ./bin/openvintage-simulator-macos-x86_64 --help || true
 
       - name: Run MBP9,1 compatibility simulation
         shell: bash
         run: |
-          set -e
-
+          set -euo pipefail
           cd OpenVintagePrebootSimulator
-
           ./bin/openvintage-simulator-macos-x86_64 \
             --cli \
             --mac MBP9,1 \
@@ -186,23 +181,13 @@ jobs:
         if: always()
         shell: bash
         run: |
+          set -euo pipefail
           mkdir -p ci-artifacts
-
-          cp OpenVintagePrebootSimulator/bin/openvintage-simulator-macos-x86_64 \
-             ci-artifacts/
-
-          cp OpenVintagePrebootSimulator/bin/test_runner_macos-x86_64 \
-             ci-artifacts/
-
-          cp OpenVintagePrebootSimulator/ci_mbp91_report.txt \
-             ci-artifacts/ 2>/dev/null || true
-
-          cp OpenVintagePrebootSimulator/ci_mbp91_report.html \
-             ci-artifacts/ 2>/dev/null || true
-
-          cp OpenVintagePrebootSimulator/ci_mbp91_report.json \
-             ci-artifacts/ 2>/dev/null || true
-
+          cp OpenVintagePrebootSimulator/bin/openvintage-simulator-macos-x86_64 ci-artifacts/
+          cp OpenVintagePrebootSimulator/bin/test_runner_macos-x86_64 ci-artifacts/
+          cp OpenVintagePrebootSimulator/ci_mbp91_report.txt ci-artifacts/ 2>/dev/null || true
+          cp OpenVintagePrebootSimulator/ci_mbp91_report.html ci-artifacts/ 2>/dev/null || true
+          cp OpenVintagePrebootSimulator/ci_mbp91_report.json ci-artifacts/ 2>/dev/null || true
           shasum -a 256 ci-artifacts/* > ci-artifacts/SHA256SUMS.txt
 
       - name: Upload macOS Intel artifacts
