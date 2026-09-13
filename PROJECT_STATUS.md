@@ -52,7 +52,8 @@ Firmware Release: v0.5.0-Phase-5 (Full System Integration & Optimization)
 | **HAL DXE Driver** | `OpenVintagePkg/Drivers/OpenVintageHalDxe/` | Built | `OpenVintageHalDxe.efi` (~8.2 KB) |
 | **Boot Application Binary** | `bin/OpenVintageBootApp.efi` | Built | PE32+ x86-64 Executable (~48 KB) |
 | **Self-Test Diagnostic Suite**| `bin/OvSelfTestApp.efi` | Built | PE32+ x86-64 Executable (~380 KB) |
-| **Pre-Boot Architecture Simulator** | `OpenVintagePrebootSimulator/bin/openvintage-preboot-simulator` | Built & Tested | GTK4 GUI + CLI Multi-Phase Architecture Simulator |
+| **Pre-Boot Architecture Simulator** | `OpenVintagePrebootSimulator/bin/openvintage-preboot-simulator` | Built & Tested | GTK4 GUI + CLI Multi-Phase Architecture Simulator (Native & Simulated Modes) |
+| **Simulator Automated Test Suite** | `OpenVintagePrebootSimulator/bin/test_runner` | Built & Tested | 161 Unit, Integration & Hardware Verification Tests (100% PASS) |
 | **Flash Device Image** | `bin/OPENVINTAGE.fd` | Generated | 4.0 MB Flash ROM Image |
 | **Firmware Volume** | `OpenVintagePkg/Firmware/OPENVINTAGE_DXEFV.Fv`| Generated | 4.0 MB PI Firmware Volume |
 | **Automated Build Script** | `scripts/build_firmware.sh` | Operational | Builds and populates all binaries |
@@ -78,3 +79,22 @@ Firmware Release: v0.5.0-Phase-5 (Full System Integration & Optimization)
   - Real TSC measurements proving speedup of constant folding, dead code elimination, and translation cache lookup.
 - [x] **Automated Self-Test Expansion**:
   - Expanded from 24 to 32 tests covering all Phase 5 integrated features.
+
+---
+
+## Completed Milestones (Hardware Detection & Architecture Separation)
+- [x] **Strict Separation of Native vs. Simulated Hardware Modes (`ov_hardware`)**:
+  - `ov_hardware_init()` defaults to `OV_HW_MODE_NATIVE` with host hardware interrogation.
+  - Eliminated silent fallback to `MacBookPro9,1` profile in native execution mode.
+  - Added accessors `ov_hardware_get_mode`, `ov_hardware_get_source`, `ov_hardware_get_mode_string`, `ov_hardware_get_source_string`, and dynamic switching via `ov_hardware_set_mode`.
+- [x] **Platform Hardware Detection Backend**:
+  - macOS backend (`platform/macos/ov_hardware_macos.c`) using `sysctlbyname` (`hw.model`, `machdep.cpu.brand_string`, `hw.memsize`) and `IOKit` for real GPU vendor/device and VRAM probing.
+  - Linux backend (`platform/common/ov_platform.c`) using `/proc/cpuinfo`, `/proc/meminfo`, and PCI configuration space.
+- [x] **CLI Flag Support**:
+  - Added `-n` / `--native` flag to enforce physical host hardware detection.
+  - Added `-s` / `--simulate <model>` to activate simulated profile evaluation.
+- [x] **Audited Diagnostic Reporting**:
+  - Reports now export `hardware_mode`, `hardware_source`, `host_detected_model`, and `simulated_target_model` in text, JSON, and HTML formats.
+- [x] **Automated Verification**:
+  - 161/161 automated test cases passing cleanly with zero memory leaks in `test_runner`.
+

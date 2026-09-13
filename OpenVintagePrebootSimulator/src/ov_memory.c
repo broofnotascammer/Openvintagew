@@ -21,6 +21,7 @@ static size_t   g_freed_total = 0;
 static size_t   g_peak_usage = 0;
 static uint32_t g_allocation_count = 0;
 static uint32_t g_free_count = 0;
+static bool     g_cleaned_up = false;
 
 ov_status_t ov_memory_init(size_t pool_size) {
     (void)pool_size;
@@ -29,6 +30,7 @@ ov_status_t ov_memory_init(size_t pool_size) {
     g_peak_usage = 0;
     g_allocation_count = 0;
     g_free_count = 0;
+    g_cleaned_up = false;
     ov_log_info("Memory subsystem initialized (portable header tracking)");
     return OV_SUCCESS;
 }
@@ -128,8 +130,17 @@ ov_memory_stats_t ov_memory_get_stats(void) {
     stats.peak_usage = g_peak_usage;
     stats.num_allocations = g_allocation_count;
     stats.num_frees = g_free_count;
-    stats.has_leaks = (current > 0);
+    /* Leaks are only confirmed post-cleanup when all subsystems should have released memory */
+    stats.has_leaks = (g_cleaned_up && current > 0);
     return stats;
+}
+
+bool ov_memory_is_clean(void) {
+    return (g_allocated_total == g_freed_total);
+}
+
+size_t ov_memory_get_active_bytes(void) {
+    return (g_allocated_total >= g_freed_total) ? (g_allocated_total - g_freed_total) : 0;
 }
 
 void ov_memory_print_stats(void) {
@@ -143,6 +154,7 @@ void ov_memory_print_stats(void) {
 }
 
 void ov_memory_cleanup(void) {
+    g_cleaned_up = true;
     ov_memory_stats_t stats = ov_memory_get_stats();
     if (stats.has_leaks) {
         ov_log_warn("Memory cleanup: %zu bytes still un-freed across %u remaining blocks",

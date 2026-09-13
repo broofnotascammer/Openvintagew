@@ -1,0 +1,41 @@
+================================================================================
+                  OPENVINTAGE PRE-BOOT SYSTEM DIAGNOSTIC REPORT                 
+================================================================================
+
+System Health Score: 95 / 100 [OPTIMAL]
+Hardware Mode:       SIMULATED
+Hardware Source:     SIMULATED
+Host Detected Model: Linux x86_64 Host
+Simulated Target:    MacBookPro9,1
+Platform:            OpenVintage EFI Platform (OpenVintage Systems / EDK2, Rev 0x00010005)
+Active Model:        MacBookPro9,1 (MacBook Pro (15-inch, Mid 2012))
+macOS Compatibility: macOS 12 Monterey: SUPPORTED WITH PATCHES (OCLP) (Supported via OCLP. Apple removed Kepler NVIDIA drivers; OCLP reinstalls Kepler Metal bundle.)
+OCLP Patch Support:  Supported (OpenCore Legacy Patcher)
+Execution Policy:    OVIR Adaptive Hybrid Routing (Phase 5)
+
+[PROCESSOR (CPU)]
+Model:               Intel Core i7-3615QM
+Topology:            4 Physical Cores / 8 Logical Threads @ 2300 MHz
+ISA Extensions:      SSE4.2: YES | AVX: YES | AVX2: NO | AES-NI: YES
+Translation Support: ARM64->x86_64 JIT: YES | x86 Recompilation: YES
+
+[GRAPHICS ACCELERATOR (GPU)]
+Model:               Intel HD Graphics 4000 (Integrated) (PCI 0x8086:0x0166)
+Dedicated Memory:    1536 MB VRAM | Max Texture: 8192px
+Hardware Features:   Compute: YES | Tessellation: YES
+API Capabilities:    OpenGL Core [Native], Vulkan [OVIR-GPU Trans], Metal [Native]
+
+[SYSTEM MEMORY]
+Total Physical RAM:  8192 MB
+Available Free RAM:  7168 MB
+Allocated Simulator: 8193 KB
+Integrity / Leaks:   CLEAN (0 Leaks)
+
+[UNIFIED MULTI-TIER CACHE]
+Generation:          1
+Active Entries:      64 entries (2 KB total)
+Global Hit Rate:     50%
+
+[ACTIVE SILICON QUIRKS & WORKAROUNDS]
+Texture clamping <= 8192px; Metal emulation via GLSL core; AVX2 emulated via SSE4.2 if absent.
+================================================================================

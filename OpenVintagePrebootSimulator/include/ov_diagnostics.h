@@ -15,6 +15,10 @@
 typedef struct {
     /* Platform & Firmware */
     char     platform_name[64];
+    char     hardware_mode[32];          /* "NATIVE" or "SIMULATED" */
+    char     hardware_source[32];        /* "NATIVE" or "SIMULATED" */
+    char     host_detected_model[64];    /* Detected host machine identifier */
+    char     simulated_target_model[64]; /* Target simulated model identifier or N/A */
     char     firmware_vendor[32];
     uint32_t firmware_revision;
     uint32_t bitness;
@@ -79,11 +83,14 @@ ov_status_t ov_diagnostics_init(void);
 void        ov_diagnostics_cleanup(void);
 
 ov_status_t ov_diagnostics_generate_report(ov_diagnostic_report_t *out_report);
+void        ov_diagnostics_refresh_memory_status(ov_diagnostic_report_t *report);
 
 /* Exporters */
 ov_status_t ov_diagnostics_export_text(const ov_diagnostic_report_t *report, const char *file_path);
 ov_status_t ov_diagnostics_export_json(const ov_diagnostic_report_t *report, const char *file_path);
 ov_status_t ov_diagnostics_export_html(const ov_diagnostic_report_t *report, const char *file_path);
+ov_status_t ov_diagnostics_export_native_text(const char *file_path);
+ov_status_t ov_diagnostics_export_native_json(const char *file_path);
 
 /* Format in memory */
 void ov_diagnostics_format_text(const ov_diagnostic_report_t *report, char *out_buf, size_t max_len);

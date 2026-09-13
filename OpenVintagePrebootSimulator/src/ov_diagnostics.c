@@ -37,6 +37,26 @@ ov_status_t ov_diagnostics_generate_report(ov_diagnostic_report_t *out_report) {
 
     /* Platform & Firmware */
     snprintf(out_report->platform_name, sizeof(out_report->platform_name), "OpenVintage EFI Platform");
+    ov_hw_mode_t hw_mode = ov_hardware_get_mode();
+    snprintf(out_report->hardware_mode, sizeof(out_report->hardware_mode), "%s",
+             ov_hw_mode_to_string(hw_mode));
+    ov_hw_source_t hw_source = ov_hardware_get_source();
+    snprintf(out_report->hardware_source, sizeof(out_report->hardware_source), "%s",
+             ov_hw_source_to_string(hw_source));
+
+    ov_hardware_profile_t host_prof;
+    if (ov_hardware_get_profile(OV_HW_PROFILE_HOST, &host_prof) == OV_SUCCESS) {
+        snprintf(out_report->host_detected_model, sizeof(out_report->host_detected_model), "%s", host_prof.model_identifier);
+    } else {
+        snprintf(out_report->host_detected_model, sizeof(out_report->host_detected_model), "Unknown Host");
+    }
+
+    if (hw_mode == OV_HW_MODE_SIMULATED && prof) {
+        snprintf(out_report->simulated_target_model, sizeof(out_report->simulated_target_model), "%s", prof->model_identifier);
+    } else {
+        snprintf(out_report->simulated_target_model, sizeof(out_report->simulated_target_model), "N/A (Native Mode)");
+    }
+
     snprintf(out_report->firmware_vendor, sizeof(out_report->firmware_vendor), "OpenVintage Systems / EDK2");
     out_report->firmware_revision = 0x00010005; /* v1.5 */
     out_report->bitness = 64;
@@ -130,6 +150,14 @@ ov_status_t ov_diagnostics_generate_report(ov_diagnostic_report_t *out_report) {
     return OV_SUCCESS;
 }
 
+void ov_diagnostics_refresh_memory_status(ov_diagnostic_report_t *report) {
+    if (!report) return;
+    ov_memory_stats_t mem_stats = ov_memory_get_stats();
+    report->allocated_ram_bytes = mem_stats.allocated;
+    report->free_ram_bytes = mem_stats.freed;
+    report->memory_leaks_detected = mem_stats.has_leaks;
+}
+
 void ov_diagnostics_format_text(const ov_diagnostic_report_t *r, char *out_buf, size_t max_len) {
     if (!r || !out_buf || max_len == 0) return;
 
@@ -138,8 +166,12 @@ void ov_diagnostics_format_text(const ov_diagnostic_report_t *r, char *out_buf, 
         "                  OPENVINTAGE PRE-BOOT SYSTEM DIAGNOSTIC REPORT                 \n"
         "================================================================================\n\n"
         "System Health Score: %u / 100 [OPTIMAL]\n"
+        "Hardware Mode:       %s\n"
+        "Hardware Source:     %s\n"
+        "Host Detected Model: %s\n"
+        "Simulated Target:    %s\n"
         "Platform:            %s (%s, Rev 0x%08x)\n"
-        "Mac Model:           %s (%s)\n"
+        "Active Model:        %s (%s)\n"
         "macOS Compatibility: %s\n"
         "OCLP Patch Support:  %s\n"
         "Execution Policy:    %s\n\n"
@@ -166,6 +198,10 @@ void ov_diagnostics_format_text(const ov_diagnostic_report_t *r, char *out_buf, 
         "%s\n"
         "================================================================================\n",
         r->system_health_score,
+        r->hardware_mode,
+        r->hardware_source,
+        r->host_detected_model,
+        r->simulated_target_model,
         r->platform_name, r->firmware_vendor, r->firmware_revision,
         r->mac_model, r->mac_model_name,
         r->macos_compat_summary,
@@ -198,6 +234,10 @@ void ov_diagnostics_format_json(const ov_diagnostic_report_t *r, char *out_buf, 
         "{\n"
         "  \"openvintage\": {\n"
         "    \"health_score\": %u,\n"
+        "    \"hardware_mode\": \"%s\",\n"
+        "    \"hardware_source\": \"%s\",\n"
+        "    \"host_detected_model\": \"%s\",\n"
+        "    \"simulated_target_model\": \"%s\",\n"
         "    \"platform\": \"%s\",\n"
         "    \"firmware\": \"%s\",\n"
         "    \"mac_model\": \"%s\",\n"
@@ -234,6 +274,10 @@ void ov_diagnostics_format_json(const ov_diagnostic_report_t *r, char *out_buf, 
         "  }\n"
         "}\n",
         r->system_health_score,
+        r->hardware_mode,
+        r->hardware_source,
+        r->host_detected_model,
+        r->simulated_target_model,
         r->platform_name, r->firmware_vendor,
         r->mac_model, r->mac_model_name,
         r->macos_compat_summary,
@@ -304,7 +348,8 @@ ov_status_t ov_diagnostics_export_html(const ov_diagnostic_report_t *r, const ch
         "    <div class=\"card\">\n"
         "      <h1>OpenVintage Pre-Boot Diagnostic Audit</h1>\n"
         "      <div class=\"score-box\">Health Score: %u / 100</div>\n"
-        "      <p style=\"color:#cbd5e1; margin-top:12px;\">Platform: %s | Model: %s (%s)</p>\n"
+        "      <p style=\"color:#cbd5e1; margin-top:12px;\">Hardware Mode: <span class=\"val\">%s</span> | Hardware Source: <span class=\"val\">%s</span> | Host: <span class=\"val\">%s</span></p>\n"
+        "      <p style=\"color:#cbd5e1; margin-top:4px;\">Simulated Target: <span class=\"val\">%s</span> | Platform: %s | Active Model: %s (%s)</p>\n"
         "      <p style=\"color:#38bdf8; margin-top:4px;\">%s</p>\n"
         "    </div>\n"
         "    <div class=\"grid\">\n"
@@ -332,7 +377,8 @@ ov_status_t ov_diagnostics_export_html(const ov_diagnostic_report_t *r, const ch
         "  </div>\n"
         "</body>\n"
         "</html>\n",
-        r->system_health_score, r->platform_name, r->mac_model, r->mac_model_name,
+        r->system_health_score, r->hardware_mode, r->hardware_source, r->host_detected_model,
+        r->simulated_target_model, r->platform_name, r->mac_model, r->mac_model_name,
         r->macos_compat_summary,
         r->cpu_model, r->physical_cores, r->logical_threads,
         r->has_avx ? "Yes" : "No", r->has_avx2 ? "Yes" : "No",
@@ -342,5 +388,158 @@ ov_status_t ov_diagnostics_export_html(const ov_diagnostic_report_t *r, const ch
 
     fclose(f);
     ov_log_info("Exported HTML diagnostic report to: %s", file_path);
+    return OV_SUCCESS;
+}
+
+/* ========================================================================= */
+/* Native Hardware Diagnostics Exporters                                     */
+/* ========================================================================= */
+
+ov_status_t ov_diagnostics_export_native_text(const char *file_path) {
+    if (!file_path) return OV_ERROR_INVALID_PARAM;
+    FILE *f = fopen(file_path, "w");
+    if (!f) return OV_ERROR_INIT;
+
+    const ov_hardware_profile_t *p = ov_hardware_get_active_profile();
+    ov_hw_mode_t mode = ov_hardware_get_mode();
+    ov_hw_source_t source = ov_hardware_get_source();
+
+    fprintf(f, "================================================================================\n");
+    fprintf(f, "               OPENVINTAGE NATIVE HARDWARE AUDIT REPORT (TEXT)                  \n");
+    fprintf(f, "================================================================================\n");
+    fprintf(f, "Hardware Mode:       %s\n", ov_hw_mode_to_string(mode));
+    fprintf(f, "Hardware Source:     %s\n", ov_hw_source_to_string(source));
+    fprintf(f, "Execution Class:     REAL HARDWARE USERSPACE INSPECTION\n");
+    fprintf(f, "Host Model ID:       %s\n", p ? p->model_identifier : "Unknown");
+    fprintf(f, "Marketing Name:      %s\n", p ? p->marketing_name : "Unknown");
+    fprintf(f, "Genuine Apple Host:  %s\n", (p && p->is_mac_host) ? "YES" : "NO");
+    fprintf(f, "Firmware Type:       %s\n", p ? p->firmware_type : "Unknown");
+    fprintf(f, "Storage Controller:  %s\n", p ? p->storage_interface : "Unknown");
+    fprintf(f, "--------------------------------------------------------------------------------\n");
+    if (p) {
+        fprintf(f, "Processor (CPU):\n");
+        fprintf(f, "  Brand Name:        %s\n", p->cpu.model_name);
+        fprintf(f, "  Physical Cores:    %u\n", p->cpu.cores);
+        fprintf(f, "  Logical Threads:   %u\n", p->cpu.threads);
+        fprintf(f, "  Base Clock:        %u MHz\n", p->cpu.base_freq_mhz);
+        fprintf(f, "  Max Clock:         %u MHz\n", p->cpu.max_freq_mhz);
+        fprintf(f, "  SSE4.2:            %s [DETECTED]\n", p->cpu.has_sse42 ? "YES" : "NO");
+        fprintf(f, "  AVX:               %s [DETECTED]\n", p->cpu.has_avx ? "YES" : "NO");
+        fprintf(f, "  AVX2:              %s [DETECTED]\n", p->cpu.has_avx2 ? "YES" : "NO");
+        fprintf(f, "  AES-NI:            %s [DETECTED]\n", p->cpu.has_aesni ? "YES" : "NO");
+        fprintf(f, "--------------------------------------------------------------------------------\n");
+        fprintf(f, "System Memory:\n");
+        fprintf(f, "  Total Physical:    %llu MB (%llu bytes)\n",
+                (unsigned long long)(p->mem.total_bytes / (1024 * 1024)), (unsigned long long)p->mem.total_bytes);
+        fprintf(f, "  Available RAM:     %llu MB (%llu bytes)\n",
+                (unsigned long long)(p->mem.available_bytes / (1024 * 1024)), (unsigned long long)p->mem.available_bytes);
+        fprintf(f, "--------------------------------------------------------------------------------\n");
+        fprintf(f, "Graphics Subsystem (IOKit / PCI Topology):\n");
+        fprintf(f, "  Total GPUs:        %u\n", p->gpu_topology.gpu_count);
+        fprintf(f, "  Switchable Mux:    %s\n", p->gpu_topology.is_muxed_switchable ? "YES (Dynamic / GMUX)" : "NO (Single Adapter)");
+        if (p->gpu_topology.switch_policy[0]) {
+            fprintf(f, "  Mux Policy:        %s\n", p->gpu_topology.switch_policy);
+        }
+        for (uint32_t i = 0; i < p->gpu_topology.gpu_count; i++) {
+            const ov_gpu_info_t *g = &p->gpu_topology.gpus[i];
+            fprintf(f, "\n  Adapter %u:\n", i);
+            fprintf(f, "    Device Name:     %s\n", g->model_name);
+            fprintf(f, "    PCI Vendor ID:   0x%04x\n", g->vendor_id);
+            fprintf(f, "    PCI Device ID:   0x%04x\n", g->device_id);
+            fprintf(f, "    Role:            %s%s\n",
+                    (i == p->gpu_topology.primary_gpu_index) ? "Primary " : "",
+                    (g->vendor_id == 0x8086) ? "Integrated Display Controller" : "Discrete GPU");
+            fprintf(f, "    VRAM Detection:  %s\n", g->vram_is_detected ? "EXPOSED BY IOKIT" : "DYNAMIC / NOT EXPOSED BY IOKIT");
+            fprintf(f, "    VRAM Description:%s\n", g->vram_description[0] ? g->vram_description : (g->vram_is_detected ? "Detected" : "UNKNOWN"));
+            fprintf(f, "    Metal Level:     %s [%s]\n", ov_metal_support_to_string(g->metal_level), g->metal_source);
+            fprintf(f, "    OpenGL Core:     OpenGL %u.%u [%s]\n",
+                    g->opengl_major ? g->opengl_major : 4,
+                    g->opengl_minor ? g->opengl_minor : 1,
+                    g->opengl_source);
+            fprintf(f, "    Vulkan Support:  %s [%s]\n", g->supports_vulkan ? "YES" : "NO", g->vulkan_source);
+            fprintf(f, "    Max Texture Dim: %upx\n", g->max_texture_dimension);
+        }
+    }
+    fprintf(f, "================================================================================\n");
+
+    fclose(f);
+    ov_log_info("Exported native text report to: %s", file_path);
+    return OV_SUCCESS;
+}
+
+ov_status_t ov_diagnostics_export_native_json(const char *file_path) {
+    if (!file_path) return OV_ERROR_INVALID_PARAM;
+    FILE *f = fopen(file_path, "w");
+    if (!f) return OV_ERROR_INIT;
+
+    const ov_hardware_profile_t *p = ov_hardware_get_active_profile();
+    ov_hw_mode_t mode = ov_hardware_get_mode();
+    ov_hw_source_t source = ov_hardware_get_source();
+
+    fprintf(f, "{\n");
+    fprintf(f, "  \"openvintage_native_report\": {\n");
+    fprintf(f, "    \"version\": \"1.0\",\n");
+    fprintf(f, "    \"hardware_mode\": \"%s\",\n", ov_hw_mode_to_string(mode));
+    fprintf(f, "    \"hardware_source\": \"%s\",\n", ov_hw_source_to_string(source));
+    fprintf(f, "    \"execution_class\": \"REAL_HARDWARE_USERSPACE\",\n");
+    fprintf(f, "    \"is_simulated\": false,\n");
+    fprintf(f, "    \"host\": {\n");
+    fprintf(f, "      \"model_identifier\": \"%s\",\n", p ? p->model_identifier : "Unknown");
+    fprintf(f, "      \"marketing_name\": \"%s\",\n", p ? p->marketing_name : "Unknown");
+    fprintf(f, "      \"is_mac_host\": %s,\n", (p && p->is_mac_host) ? "true" : "false");
+    fprintf(f, "      \"firmware_type\": \"%s\",\n", p ? p->firmware_type : "Unknown");
+    fprintf(f, "      \"storage_interface\": \"%s\"\n", p ? p->storage_interface : "Unknown");
+    fprintf(f, "    },\n");
+    if (p) {
+        fprintf(f, "    \"cpu\": {\n");
+        fprintf(f, "      \"model\": \"%s\",\n", p->cpu.model_name);
+        fprintf(f, "      \"physical_cores\": %u,\n", p->cpu.cores);
+        fprintf(f, "      \"logical_threads\": %u,\n", p->cpu.threads);
+        fprintf(f, "      \"base_frequency_mhz\": %u,\n", p->cpu.base_freq_mhz);
+        fprintf(f, "      \"has_sse42\": %s,\n", p->cpu.has_sse42 ? "true" : "false");
+        fprintf(f, "      \"has_avx\": %s,\n", p->cpu.has_avx ? "true" : "false");
+        fprintf(f, "      \"has_avx2\": %s,\n", p->cpu.has_avx2 ? "true" : "false");
+        fprintf(f, "      \"has_aesni\": %s\n", p->cpu.has_aesni ? "true" : "false");
+        fprintf(f, "    },\n");
+        fprintf(f, "    \"memory\": {\n");
+        fprintf(f, "      \"total_bytes\": %llu,\n", (unsigned long long)p->mem.total_bytes);
+        fprintf(f, "      \"available_bytes\": %llu,\n", (unsigned long long)p->mem.available_bytes);
+        fprintf(f, "      \"total_mb\": %llu\n", (unsigned long long)(p->mem.total_bytes / (1024 * 1024)));
+        fprintf(f, "    },\n");
+        fprintf(f, "    \"gpu_topology\": {\n");
+        fprintf(f, "      \"gpu_count\": %u,\n", p->gpu_topology.gpu_count);
+        fprintf(f, "      \"is_muxed_switchable\": %s,\n", p->gpu_topology.is_muxed_switchable ? "true" : "false");
+        fprintf(f, "      \"switch_policy\": \"%s\",\n", p->gpu_topology.switch_policy);
+        fprintf(f, "      \"gpus\": [\n");
+        for (uint32_t i = 0; i < p->gpu_topology.gpu_count; i++) {
+            const ov_gpu_info_t *g = &p->gpu_topology.gpus[i];
+            fprintf(f, "        {\n");
+            fprintf(f, "          \"index\": %u,\n", i);
+            fprintf(f, "          \"model_name\": \"%s\",\n", g->model_name);
+            fprintf(f, "          \"pci_vendor_id\": \"0x%04x\",\n", g->vendor_id);
+            fprintf(f, "          \"pci_device_id\": \"0x%04x\",\n", g->device_id);
+            fprintf(f, "          \"is_primary\": %s,\n", (i == p->gpu_topology.primary_gpu_index) ? "true" : "false");
+            fprintf(f, "          \"vram_is_detected\": %s,\n", g->vram_is_detected ? "true" : "false");
+            fprintf(f, "          \"vram_bytes\": %llu,\n", (unsigned long long)g->vram_bytes);
+            fprintf(f, "          \"vram_description\": \"%s\",\n", g->vram_description);
+            fprintf(f, "          \"supports_metal\": %s,\n", g->supports_metal ? "true" : "false");
+            fprintf(f, "          \"metal_level\": \"%s\",\n", ov_metal_support_to_string(g->metal_level));
+            fprintf(f, "          \"metal_source\": \"%s\",\n", g->metal_source);
+            fprintf(f, "          \"supports_opengl_core\": %s,\n", g->supports_opengl_core ? "true" : "false");
+            fprintf(f, "          \"opengl_version\": \"%u.%u\",\n", g->opengl_major ? g->opengl_major : 4, g->opengl_minor ? g->opengl_minor : 1);
+            fprintf(f, "          \"opengl_source\": \"%s\",\n", g->opengl_source);
+            fprintf(f, "          \"supports_vulkan\": %s,\n", g->supports_vulkan ? "true" : "false");
+            fprintf(f, "          \"vulkan_source\": \"%s\",\n", g->vulkan_source);
+            fprintf(f, "          \"max_texture_dimension\": %u\n", g->max_texture_dimension);
+            fprintf(f, "        }%s\n", (i + 1 < p->gpu_topology.gpu_count) ? "," : "");
+        }
+        fprintf(f, "      ]\n");
+        fprintf(f, "    }\n");
+    }
+    fprintf(f, "  }\n");
+    fprintf(f, "}\n");
+
+    fclose(f);
+    ov_log_info("Exported native JSON report to: %s", file_path);
     return OV_SUCCESS;
 }

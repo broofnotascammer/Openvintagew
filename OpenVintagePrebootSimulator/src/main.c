@@ -20,23 +20,29 @@ static void print_usage(const char *prog_name) {
     printf("        OpenVintage Pre-Boot Architecture & Mac Compatibility Simulator        \n");
     printf("================================================================================\n\n");
     printf("Usage: %s [options]\n\n", prog_name);
+    printf("Hardware Execution Modes:\n");
+    printf("  -n, --native                 Force NATIVE mode on physical host (never loads simulated profiles)\n");
+    printf("  --hardware-test              Execute strict native hardware validation & resolution smoke test\n");
+    printf("  --native-report <file>       Export comprehensive native hardware audit in JSON format\n");
+    printf("  --native-report-text <file>  Export human-readable native hardware audit in plain text\n\n");
     printf("Simulation & Hardware Profiles:\n");
-    printf("  -d, --detect            Safely detect host hardware (read-only, non-invasive)\n");
-    printf("  -m, --mac <model>       Select Mac hardware profile (e.g. MBP9,1, MacBookPro9,1,\n");
-    printf("                          iMac14,2, MacPro5,1, Macmini6,2, MacBookPro11,5)\n");
-    printf("  -l, --list-macs         List all supported Mac hardware profiles\n");
-    printf("  -t, --target-os <ver>   Target macOS version for evaluation (e.g. 10.13, 11, 12, 13, 14, 15,\n");
-    printf("                          monterey, ventura, sonoma, sequoia)\n");
-    printf("  --compat-matrix         Display full macOS version compatibility matrix for profile\n\n");
+    printf("  -s, --simulate <model>       Select simulated Mac hardware profile (e.g. MBP9,1, MacBookPro9,1,\n");
+    printf("                               iMac14,2, MacPro5,1, Macmini6,2, MacBookPro11,5)\n");
+    printf("  -m, --mac <model>            Alias for --simulate\n");
+    printf("  -d, --detect                 Safely detect host hardware (read-only, non-invasive)\n");
+    printf("  -l, --list-macs              List all supported Mac hardware profiles\n");
+    printf("  -t, --target-os <ver>        Target macOS version for evaluation (e.g. 10.13, 11, 12, 13, 14, 15,\n");
+    printf("                               monterey, ventura, sonoma, sequoia)\n");
+    printf("  --compat-matrix              Display full macOS version compatibility matrix for profile\n\n");
     printf("Execution & Output Modes:\n");
-    printf("  -c, --cli               Run in CLI mode without launching GUI\n");
-    printf("  -g, --gui               Force GUI mode (requires DISPLAY / Wayland)\n");
-    printf("  -b, --bench             Execute and display real empirical benchmark suite\n");
-    printf("  -r, --report <file>     Export text diagnostic report to <file>\n");
-    printf("  --html <file>           Export HTML diagnostic report to <file>\n");
-    printf("  --json <file>           Export JSON diagnostic report to <file>\n");
-    printf("  --profile-res <profile> Resource profile: balanced, perf, max, lowpower\n");
-    printf("  -h, --help              Show this help message\n\n");
+    printf("  -c, --cli                    Run in CLI mode without launching GUI\n");
+    printf("  -g, --gui                    Force GUI mode (requires DISPLAY / Wayland)\n");
+    printf("  -b, --bench                  Execute and display real empirical benchmark suite\n");
+    printf("  -r, --report <file>          Export text diagnostic report to <file>\n");
+    printf("  --html <file>                Export HTML diagnostic report to <file>\n");
+    printf("  --json <file>                Export JSON diagnostic report to <file>\n");
+    printf("  --profile-res <profile>      Resource profile: balanced, perf, max, lowpower\n");
+    printf("  -h, --help                   Show this help message\n\n");
 }
 
 int main(int argc, char *argv[]) {
@@ -46,11 +52,15 @@ int main(int argc, char *argv[]) {
     bool just_detect = false;
     bool list_macs = false;
     bool show_matrix = false;
+    bool force_native = false;
+    bool run_hardware_test = false;
     const char *mac_profile_arg = NULL;
     const char *target_os_arg = NULL;
     const char *report_txt = NULL;
     const char *report_html = NULL;
     const char *report_json = NULL;
+    const char *native_report_json = NULL;
+    const char *native_report_txt = NULL;
     const char *resource_arg = NULL;
 
     for (int i = 1; i < argc; i++) {
@@ -60,6 +70,20 @@ int main(int argc, char *argv[]) {
             force_gui = true;
         } else if (!strcmp(argv[i], "-b") || !strcmp(argv[i], "--bench")) {
             run_bench = true;
+        } else if (!strcmp(argv[i], "-n") || !strcmp(argv[i], "--native")) {
+            force_native = true;
+        } else if (!strcmp(argv[i], "--hardware-test") || !strcmp(argv[i], "--smoke-test")) {
+            run_hardware_test = true;
+            force_native = true;
+            force_cli = true;
+        } else if (!strcmp(argv[i], "--native-report") && i + 1 < argc) {
+            native_report_json = argv[++i];
+            force_native = true;
+            force_cli = true;
+        } else if (!strcmp(argv[i], "--native-report-text") && i + 1 < argc) {
+            native_report_txt = argv[++i];
+            force_native = true;
+            force_cli = true;
         } else if (!strcmp(argv[i], "-d") || !strcmp(argv[i], "--detect")) {
             just_detect = true;
             force_cli = true;
@@ -69,7 +93,9 @@ int main(int argc, char *argv[]) {
         } else if (!strcmp(argv[i], "--compat-matrix")) {
             show_matrix = true;
             force_cli = true;
-        } else if ((!strcmp(argv[i], "-m") || !strcmp(argv[i], "--mac") || !strcmp(argv[i], "--profile")) && i + 1 < argc) {
+        } else if ((!strcmp(argv[i], "-s") || !strcmp(argv[i], "--simulate") ||
+                    !strcmp(argv[i], "-m") || !strcmp(argv[i], "--mac") ||
+                    !strcmp(argv[i], "--profile")) && i + 1 < argc) {
             mac_profile_arg = argv[++i];
         } else if ((!strcmp(argv[i], "-t") || !strcmp(argv[i], "--target-os")) && i + 1 < argc) {
             target_os_arg = argv[++i];
@@ -85,6 +111,18 @@ int main(int argc, char *argv[]) {
             print_usage(argv[0]);
             return 0;
         }
+    }
+
+    /* Reject ambiguous options */
+    if (force_native && mac_profile_arg) {
+        fprintf(stderr, "\n[ERROR] Ambiguous options provided: '--native' and '--mac/--simulate'\n");
+        fprintf(stderr, "  '--native' forces real host hardware interrogation (Hardware Source: NATIVE).\n");
+        fprintf(stderr, "  '--mac/--simulate' loads an emulated Mac profile (Hardware Source: SIMULATED).\n");
+        fprintf(stderr, "  These options represent mutually exclusive hardware sources and cannot be combined.\n");
+        fprintf(stderr, "  Usage:\n");
+        fprintf(stderr, "    To test native physical host:  %s --native [--hardware-test]\n", argv[0]);
+        fprintf(stderr, "    To simulate target Mac model: %s --mac %s\n\n", argv[0], mac_profile_arg);
+        return 1;
     }
 
     /* Handle quick informational commands */
@@ -142,18 +180,59 @@ int main(int argc, char *argv[]) {
         return 0;
     }
 
-    /* 2. Switch to requested Mac profile if specified */
-    if (mac_profile_arg) {
+    /* 2. Configure Hardware Mode (NATIVE vs. SIMULATED) */
+    if (force_native) {
+        char fail_reason[256] = {0};
+        status = ov_hardware_detect_native_strict(fail_reason, sizeof(fail_reason));
+        if (status != OV_SUCCESS) {
+            fprintf(stderr, "\n[FATAL] Native hardware detection failed in subsystem: %s\n",
+                    fail_reason[0] ? fail_reason : ov_status_to_string(status));
+            fprintf(stderr, "  Strict native mode (--native) is active; fallback to simulated profiles is prohibited.\n\n");
+            ov_core_cleanup();
+            return 1;
+        }
+    } else if (mac_profile_arg) {
         status = ov_hardware_set_active_profile_by_name(mac_profile_arg);
         if (status != OV_SUCCESS) {
-            fprintf(stderr, "Warning: Could not find Mac profile '%s'. Run --list-macs to see available.\n", mac_profile_arg);
-        } else {
-            const ov_hardware_profile_t *p = ov_hardware_get_active_profile();
-            if (p) {
-                printf("Switched simulated hardware profile to: %s (%s)\n",
-                       p->model_identifier, p->marketing_name);
-            }
+            fprintf(stderr, "Error: Could not find Mac profile '%s'. Run --list-macs to see available profiles.\n", mac_profile_arg);
+            ov_core_cleanup();
+            return 1;
         }
+    }
+
+    const ov_hardware_profile_t *active_p = ov_hardware_get_active_profile();
+    ov_hw_mode_t current_mode = ov_hardware_get_mode();
+    ov_hw_source_t current_source = ov_hardware_get_source();
+
+    if (current_mode == OV_HW_MODE_NATIVE) {
+        printf("Hardware Mode:   NATIVE (%s)\n", active_p ? active_p->model_identifier : "Host");
+        printf("Hardware Source: %s\n", ov_hw_source_to_string(current_source));
+    } else {
+        printf("Hardware Mode:   SIMULATED (%s)\n", active_p ? active_p->model_identifier : "Profile");
+        printf("Hardware Source: %s\n", ov_hw_source_to_string(current_source));
+    }
+
+    /* Smoke Test execution if requested */
+    if (run_hardware_test) {
+        ov_hardware_print_native_summary();
+        printf("[SMOKE TEST] Running native hardware topology validation & resolution test suite...\n");
+        ov_status_t test_st = ov_hardware_run_smoke_test();
+        if (test_st != OV_SUCCESS) {
+            fprintf(stderr, "[SMOKE TEST] FAILED: Native hardware validation or resolution error (%s)\n\n", ov_status_to_string(test_st));
+            ov_core_cleanup();
+            return 1;
+        }
+        printf("[SMOKE TEST] PASSED: All hardware subsystems validated and successfully resolved.\n\n");
+        if (native_report_json) {
+            ov_diagnostics_export_native_json(native_report_json);
+            printf("Native diagnostic JSON report written to: %s\n", native_report_json);
+        }
+        if (native_report_txt) {
+            ov_diagnostics_export_native_text(native_report_txt);
+            printf("Native diagnostic text report written to: %s\n", native_report_txt);
+        }
+        ov_core_cleanup();
+        return 0;
     }
 
     /* 3. Execute Full Pre-Boot Sequence */
@@ -214,6 +293,14 @@ int main(int argc, char *argv[]) {
     }
 
     /* 6. Handle File Exports */
+    if (native_report_json) {
+        ov_diagnostics_export_native_json(native_report_json);
+        printf("Native diagnostic JSON report written to: %s\n", native_report_json);
+    }
+    if (native_report_txt) {
+        ov_diagnostics_export_native_text(native_report_txt);
+        printf("Native diagnostic text report written to: %s\n", native_report_txt);
+    }
     if (report_txt) {
         ov_diagnostics_export_text(&ov_core_instance.diagnostic_report, report_txt);
         printf("Diagnostics text report written to: %s\n", report_txt);

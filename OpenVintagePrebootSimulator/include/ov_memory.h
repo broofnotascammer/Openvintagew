@@ -29,5 +29,7 @@ typedef struct {
 
 ov_memory_stats_t ov_memory_get_stats(void);
 void              ov_memory_print_stats(void);
+bool              ov_memory_is_clean(void);
+size_t            ov_memory_get_active_bytes(void);
 
 #endif /* OV_MEMORY_H */

@@ -451,3 +451,65 @@ Testing is executed in an automated, headless virtual machine environment:
   2. `OvSelfTestApp.efi`: 32 comprehensive architectural tests covering core subsystems, OVIR-GPU components, OVIR-CPU subsystems, and Phase 5 integrated features.
 - **Pass Rule**: Both apps return `EFI_SUCCESS` and output `ALL OPENVINTAGE ARCHITECTURAL TESTS PASSED!`.
 
+---
+
+## 9. Native vs. Simulated Hardware Architecture
+
+OpenVintage separates real-world host execution from static profile simulation:
+
+```
+                               ov_hardware_init()
+                                       │
+                                       ▼
+                       [ Auto-Detect Host Platform ]
+                                       │
+                ┌──────────────────────┴──────────────────────┐
+                ▼                                             ▼
+          Host Detected                               Detection Failed
+                │                                             │
+    Mode: OV_HW_MODE_NATIVE                       Mode: OV_HW_MODE_NATIVE (Degraded)
+    Source: OV_HW_SOURCE_NATIVE                   Source: OV_HW_SOURCE_NATIVE
+    Profile: OV_HW_PROFILE_HOST                   Profile: Generic Safe Host
+    is_simulated = false                          is_simulated = false
+                │                                             │
+                └──────────────────────┬──────────────────────┘
+                                       │
+                                       ▼
+                    [ Explicit Profile Selection? ]
+                                       │
+                        ┌──────────────┴──────────────┐
+                   No   ▼                             ▼  Yes (--simulate <model>)
+            Maintain NATIVE Mode             Switch to SIMULATED Mode
+            Host Hardware Interrogated       Mode: OV_HW_MODE_SIMULATED
+            Zero Profile Substitution        Source: OV_HW_SOURCE_SIMULATED
+                                             Profile: e.g. MBP9,1 / MP5,1
+                                             is_simulated = true
+```
+
+### 9.1 Core Principles
+- **No Synthetic Fallback**: The native hardware backend interrogates the physical host platform. It strictly prohibits substituting hardcoded profile data (such as MacBookPro9,1) into native mode when discovery succeeds or fails.
+- **Explicit Mode Differentiation**:
+  - `OV_HW_MODE_NATIVE` / `OV_HW_SOURCE_NATIVE`: Active hardware topology reflects real silicon discovered via operating system kernel and platform APIs.
+  - `OV_HW_MODE_SIMULATED` / `OV_HW_SOURCE_SIMULATED`: Active hardware topology reflects one of the 30+ verified Mac hardware profiles from the static architectural database.
+- **Runtime Transitioning**:
+  - `ov_hardware_set_mode(OV_HW_MODE_NATIVE)`: Restores physical host hardware context.
+  - `ov_hardware_set_active_profile(profile_id)`: Transitions to simulated mode with `is_simulated = true`.
+  - `ov_hardware_set_active_profile_by_name(name)`: Looks up and activates simulated profile by model identifier or alias.
+
+### 9.2 Native macOS Detection Engine (`platform/macos/ov_hardware_macos.c`)
+- **System Model**: Queries `hw.model` via `sysctlbyname`.
+- **CPU Topology**: Queries `machdep.cpu.brand_string`, `hw.physicalcpu`, `hw.logicalcpu`, `hw.cpufrequency`, and CPUID feature leaves directly.
+- **Memory Capacity**: Queries `hw.memsize` (64-bit unsigned integer) via `sysctlbyname`.
+- **GPU & VRAM Discovery**:
+  - Traverses the `IOKit` registry plane (`IOAccelerator`, `IOPCIDevice`).
+  - Reads `vendor-id` and `device-id` properties from device trees.
+  - Interrogates `VRAM,totalsize` and driver properties to determine actual physical VRAM without profile guessing.
+
+### 9.3 Unified Diagnostics & Reporting
+Every diagnostic report (`ov_diagnostic_report_t`) across text, JSON, and HTML formats exports:
+- `hardware_mode`: `"NATIVE"` or `"SIMULATED"`
+- `hardware_source`: `"NATIVE"` or `"SIMULATED"`
+- `host_detected_model`: The physical machine model detected by the host OS.
+- `simulated_target_model`: The simulated target Mac profile, or `"N/A (Native Mode)"`.
+
+

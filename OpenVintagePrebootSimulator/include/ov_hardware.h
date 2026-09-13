@@ -92,6 +92,8 @@ typedef struct {
     uint16_t            subdevice_id;
     uint32_t            vram_mb;
     uint64_t            vram_bytes;
+    bool                vram_is_detected;       /* True if VRAM value was directly exposed by hardware/IOKit */
+    char                vram_description[64];   /* e.g. "512 MB (Dedicated GDDR5)", "UNKNOWN (Dynamic System Allocation / Shared RAM)" */
     char                vram_type[32];          /* e.g. "DDR3", "GDDR5", "Unified LPDDR5" */
     uint32_t            eu_count;               /* Execution Units / Compute Units / ALUs */
     uint32_t            max_texture_dimension;  /* e.g. 2048, 4096, 8192, 16384 */
@@ -101,10 +103,13 @@ typedef struct {
     bool                supports_tessellation;
     ov_metal_support_t  metal_level;
     bool                supports_metal;
+    char                metal_source[128];      /* e.g. "Detected via Metal Runtime API", "Derived from Architecture: NVIDIA GK107 Kepler" */
     bool                supports_vulkan;
+    char                vulkan_source[128];     /* e.g. "Derived: Requires MoltenVK runtime translation" */
     bool                supports_opengl_core;
     uint32_t            opengl_major;
     uint32_t            opengl_minor;
+    char                opengl_source[128];     /* e.g. "Derived from Driver Architecture: OpenGL 4.1 Core Profile" */
     bool                supports_directx;
     char                driver_version[64];
 } ov_gpu_info_t;
@@ -219,6 +224,13 @@ ov_hw_profile_id_t ov_hardware_get_active_profile_id(void);
 const ov_hardware_profile_t* ov_hardware_get_active_profile(void);
 ov_status_t ov_hardware_update_custom_profile(const ov_hardware_profile_t *custom);
 
+/* Hardware Execution Mode & Source */
+ov_status_t    ov_hardware_set_mode(ov_hw_mode_t mode);
+ov_hw_mode_t   ov_hardware_get_mode(void);
+ov_hw_source_t ov_hardware_get_source(void);
+const char*    ov_hardware_get_source_string(void);
+const char*    ov_hardware_get_mode_string(void);
+
 /* Query Active Hardware */
 const ov_cpu_info_t*     ov_hardware_get_cpu(void);
 const ov_gpu_info_t*     ov_hardware_get_gpu(void);
@@ -227,6 +239,13 @@ uint32_t                 ov_hardware_get_gpu_count(void);
 const ov_gpu_info_t*     ov_hardware_get_gpu_at(uint32_t index);
 const ov_gpu_topology_t* ov_hardware_get_gpu_topology(void);
 const ov_memory_info_t*  ov_hardware_get_memory(void);
+
+/* Dedicated Real Hardware (Native) Validation & Smoke Test */
+ov_status_t ov_hardware_detect_native_strict(char *out_failure_subsystem, size_t max_len);
+ov_status_t ov_hardware_validate_native_topology(char *out_err, size_t err_len);
+void        ov_hardware_print_native_summary(void);
+ov_status_t ov_hardware_run_smoke_test(void);
+void        ov_hardware_set_native_detect_mock(ov_status_t (*mock_fn)(ov_hardware_profile_t *out_host));
 
 /* CPUID Safe Bounds & Leaf Queries */
 uint32_t ov_cpuid_max_leaf(void);

@@ -20,15 +20,23 @@ const char* ov_status_to_string(ov_status_t status) {
     }
 }
 
+const char* ov_hw_mode_to_string(ov_hw_mode_t mode) {
+    switch (mode) {
+        case OV_HW_MODE_NATIVE:    return "NATIVE";
+        case OV_HW_MODE_SIMULATED: return "SIMULATED";
+        default:                   return "UNKNOWN";
+    }
+}
+
 const char* ov_hw_source_to_string(ov_hw_source_t source) {
     switch (source) {
-        case OV_HW_SOURCE_HOST_DETECTED:     return "REAL HOST HARDWARE DETECTION";
-        case OV_HW_SOURCE_SIMULATED_PROFILE: return "SIMULATED HARDWARE PROFILE";
-        case OV_HW_SOURCE_INFERRED:          return "INFERRED HEURISTIC";
-        case OV_HW_SOURCE_UNAVAILABLE:       return "PROBE UNAVAILABLE";
-        case OV_HW_SOURCE_FALLBACK:          return "SAFE FALLBACK DEFAULT";
+        case OV_HW_SOURCE_NATIVE:    return "NATIVE";
+        case OV_HW_SOURCE_SIMULATED: return "SIMULATED";
+        case OV_HW_SOURCE_INFERRED:  return "INFERRED";
+        case OV_HW_SOURCE_UNAVAILABLE: return "UNAVAILABLE";
+        case OV_HW_SOURCE_FALLBACK:  return "FALLBACK";
         case OV_HW_SOURCE_UNKNOWN:
-        default:                             return "UNKNOWN SOURCE";
+        default:                     return "UNKNOWN";
     }
 }
 

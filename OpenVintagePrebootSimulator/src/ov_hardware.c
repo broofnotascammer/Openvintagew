@@ -6,6 +6,8 @@
 #include "ov_hardware.h"
 #include "ov_logger.h"
 #include "ov_memory.h"
+#include "ov_platform.h"
+#include "ov_resolver.h"
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
@@ -17,11 +19,13 @@
 static struct pci_access *pci_access = NULL;
 #endif
 
-static ov_hw_profile_id_t active_profile_id = OV_HW_PROFILE_MBP91_IVY_BRIDGE;
+static ov_hw_mode_t current_hw_mode = OV_HW_MODE_NATIVE;
+static ov_hw_profile_id_t active_profile_id = OV_HW_PROFILE_HOST;
 static ov_hardware_profile_t active_profile = {0};
 static ov_hardware_profile_t host_profile = {0};
 static ov_hardware_profile_t custom_profile = {0};
 static bool host_detected = false;
+static ov_status_t (*g_mock_native_detect_fn)(ov_hardware_profile_t *out_host) = NULL;
 
 /* CPUID implementation for x86_64 */
 cpuid_regs_t ov_cpuid(uint32_t leaf, uint32_t subleaf) {
@@ -363,20 +367,54 @@ ov_status_t ov_hardware_detect_host(ov_hardware_profile_t *out_host) {
     if (!out_host) return OV_ERROR_INVALID_PARAM;
     memset(out_host, 0, sizeof(ov_hardware_profile_t));
 
-    out_host->profile_id = OV_HW_PROFILE_HOST;
-    out_host->source = OV_HW_SOURCE_HOST_DETECTED;
-    out_host->is_simulated = false;
+    if (g_mock_native_detect_fn) {
+        ov_status_t mock_st = g_mock_native_detect_fn(out_host);
+        if (mock_st != OV_SUCCESS) {
+            return mock_st;
+        }
+        out_host->profile_id = OV_HW_PROFILE_HOST;
+        out_host->source = OV_HW_SOURCE_NATIVE;
+        out_host->is_simulated = false;
+        host_profile = *out_host;
+        host_detected = true;
+        return OV_SUCCESS;
+    }
 
-    snprintf(out_host->profile_name, sizeof(out_host->profile_name), "Host System");
-    snprintf(out_host->model_identifier, sizeof(out_host->model_identifier), "HostSystem-x86_64");
-    snprintf(out_host->marketing_name, sizeof(out_host->marketing_name), "Local Host Machine");
-
+#if defined(__APPLE__)
+    ov_status_t st = ov_platform_detect_host(out_host);
+    if (st != OV_SUCCESS) {
+        ov_log_error("Native macOS platform detection failed: %s", ov_status_to_string(st));
+        return st;
+    }
+#elif defined(__linux__)
+    ov_status_t st = ov_platform_detect_host(out_host);
+    if (st != OV_SUCCESS) {
+        ov_log_warn("Linux platform detection returned: %s, continuing with fallback host probe", ov_status_to_string(st));
+        ov_hardware_detect_cpu(&out_host->cpu);
+        ov_hardware_detect_gpu(&out_host->gpu);
+        ov_hardware_detect_memory(&out_host->mem);
+    }
+#else
     ov_hardware_detect_cpu(&out_host->cpu);
     ov_hardware_detect_gpu(&out_host->gpu);
     ov_hardware_detect_memory(&out_host->mem);
+#endif
 
-    /* Detect if host is a genuine Apple Mac via DMI */
-    out_host->is_mac_host = false;
+    out_host->profile_id = OV_HW_PROFILE_HOST;
+    out_host->source = OV_HW_SOURCE_NATIVE;
+    out_host->is_simulated = false;
+
+    if (out_host->profile_name[0] == '\0') {
+        snprintf(out_host->profile_name, sizeof(out_host->profile_name), "Host System");
+    }
+    if (out_host->model_identifier[0] == '\0') {
+        snprintf(out_host->model_identifier, sizeof(out_host->model_identifier), "HostSystem-x86_64");
+    }
+    if (out_host->marketing_name[0] == '\0') {
+        snprintf(out_host->marketing_name, sizeof(out_host->marketing_name), "Local Host Machine");
+    }
+
+    /* Check if host is a genuine Apple Mac via DMI (when on Linux) */
 #if defined(__linux__)
     FILE *fdmi = fopen("/sys/class/dmi/id/product_name", "r");
     if (fdmi) {
@@ -386,26 +424,40 @@ ov_status_t ov_hardware_detect_host(ov_hardware_profile_t *out_host) {
             if (strstr(dmi_buf, "Mac") != NULL || strstr(dmi_buf, "Apple") != NULL) {
                 out_host->is_mac_host = true;
                 snprintf(out_host->model_identifier, sizeof(out_host->model_identifier), "%s", dmi_buf);
+                snprintf(out_host->marketing_name, sizeof(out_host->marketing_name), "Apple %s (Physical Host)", dmi_buf);
             }
         }
         fclose(fdmi);
     }
 #endif
 
-    if (out_host->is_mac_host) {
-        snprintf(out_host->description, sizeof(out_host->description),
-                 "Physical Apple Mac Host: %s (%u Cores @ %u MHz)",
-                 out_host->model_identifier, out_host->cpu.cores, out_host->cpu.base_freq_mhz);
-    } else {
-        snprintf(out_host->description, sizeof(out_host->description),
-                 "Linux x86_64 Virtualized/Container Environment (Non-Mac Host)");
+    if (out_host->description[0] == '\0') {
+        if (out_host->is_mac_host) {
+            snprintf(out_host->description, sizeof(out_host->description),
+                     "Physical Apple Mac Host: %s (%u Cores @ %u MHz)",
+                     out_host->model_identifier, out_host->cpu.cores, out_host->cpu.base_freq_mhz);
+        } else {
+            snprintf(out_host->description, sizeof(out_host->description),
+                     "Native Host Environment: %s (%u Cores)",
+                     out_host->model_identifier, out_host->cpu.cores);
+        }
     }
 
-    snprintf(out_host->firmware_type, sizeof(out_host->firmware_type), "Host Firmware");
-    snprintf(out_host->storage_interface, sizeof(out_host->storage_interface), "Host Storage Subsystem");
-    snprintf(out_host->native_macos_min, sizeof(out_host->native_macos_min), "N/A (Host Machine)");
-    snprintf(out_host->native_macos_max, sizeof(out_host->native_macos_max), "N/A (Host Machine)");
-    snprintf(out_host->silicon_quirks, sizeof(out_host->silicon_quirks), "None (Host Native)");
+    if (out_host->firmware_type[0] == '\0') {
+        snprintf(out_host->firmware_type, sizeof(out_host->firmware_type), "Host Firmware");
+    }
+    if (out_host->storage_interface[0] == '\0') {
+        snprintf(out_host->storage_interface, sizeof(out_host->storage_interface), "Host Storage Subsystem");
+    }
+    if (out_host->native_macos_min[0] == '\0') {
+        snprintf(out_host->native_macos_min, sizeof(out_host->native_macos_min), "N/A (Host Machine)");
+    }
+    if (out_host->native_macos_max[0] == '\0') {
+        snprintf(out_host->native_macos_max, sizeof(out_host->native_macos_max), "N/A (Host Machine)");
+    }
+    if (out_host->silicon_quirks[0] == '\0') {
+        snprintf(out_host->silicon_quirks, sizeof(out_host->silicon_quirks), "None (Host Native)");
+    }
 
     host_profile = *out_host;
     host_detected = true;
@@ -1753,13 +1805,83 @@ ov_status_t ov_hardware_init(void) {
 #endif
 
     /* Detect host hardware automatically on initialization */
-    ov_hardware_detect_host(&host_profile);
+    ov_status_t status = ov_hardware_detect_host(&host_profile);
 
-    /* Default active profile is MacBookPro9,1 (Ivy Bridge + GT 650M) */
-    ov_hardware_set_active_profile(OV_HW_PROFILE_MBP91_IVY_BRIDGE);
+#if defined(__APPLE__)
+    /* On macOS, default strictly to NATIVE mode. Failure must be cleanly reported and NOT fall back to MBP9,1 */
+    if (status != OV_SUCCESS) {
+        ov_log_error("Native macOS hardware detection failed: %s (will not fall back to simulated profile)", ov_status_to_string(status));
+        return status;
+    }
+    current_hw_mode = OV_HW_MODE_NATIVE;
+    active_profile_id = OV_HW_PROFILE_HOST;
+    active_profile = host_profile;
+    active_profile.source = OV_HW_SOURCE_NATIVE;
+    active_profile.is_simulated = false;
+    ov_log_info("Hardware subsystem initialized (Mode: NATIVE, Source: NATIVE, Host: %s)", active_profile.model_identifier);
+#else
+    if (status == OV_SUCCESS) {
+        current_hw_mode = OV_HW_MODE_NATIVE;
+        active_profile_id = OV_HW_PROFILE_HOST;
+        active_profile = host_profile;
+        active_profile.source = OV_HW_SOURCE_NATIVE;
+        active_profile.is_simulated = false;
+        ov_log_info("Hardware subsystem initialized (Mode: NATIVE, Source: NATIVE, Host: %s)", active_profile.model_identifier);
+    } else {
+        ov_log_warn("Host detection unavailable (%s); setting default simulation profile", ov_status_to_string(status));
+        ov_hardware_set_active_profile(OV_HW_PROFILE_MBP91_IVY_BRIDGE);
+    }
+#endif
 
-    ov_log_info("Hardware subsystem initialized (Profile: %s)", active_profile.model_identifier);
     return OV_SUCCESS;
+}
+
+ov_hw_mode_t ov_hardware_get_mode(void) {
+    return current_hw_mode;
+}
+
+ov_status_t ov_hardware_set_mode(ov_hw_mode_t mode) {
+    if (mode == OV_HW_MODE_NATIVE) {
+        if (!host_detected) {
+            ov_status_t st = ov_hardware_detect_host(&host_profile);
+            if (st != OV_SUCCESS) {
+                ov_log_error("Failed to detect host hardware for native mode: %s", ov_status_to_string(st));
+                return st;
+            }
+        }
+        current_hw_mode = OV_HW_MODE_NATIVE;
+        active_profile_id = OV_HW_PROFILE_HOST;
+        active_profile = host_profile;
+        active_profile.source = OV_HW_SOURCE_NATIVE;
+        active_profile.is_simulated = false;
+        ov_log_info("Hardware mode set to: NATIVE (Host: %s, Source: %s)",
+                    active_profile.model_identifier, ov_hw_source_to_string(active_profile.source));
+        return OV_SUCCESS;
+    } else if (mode == OV_HW_MODE_SIMULATED) {
+        current_hw_mode = OV_HW_MODE_SIMULATED;
+        if (active_profile_id == OV_HW_PROFILE_HOST) {
+            ov_hardware_set_active_profile(OV_HW_PROFILE_MBP91_IVY_BRIDGE);
+        } else {
+            active_profile.source = OV_HW_SOURCE_SIMULATED;
+            active_profile.is_simulated = true;
+        }
+        ov_log_info("Hardware mode set to: SIMULATED (Target: %s, Source: %s)",
+                    active_profile.model_identifier, ov_hw_source_to_string(active_profile.source));
+        return OV_SUCCESS;
+    }
+    return OV_ERROR_INVALID_PARAM;
+}
+
+ov_hw_source_t ov_hardware_get_source(void) {
+    return active_profile.source;
+}
+
+const char* ov_hardware_get_source_string(void) {
+    return ov_hw_source_to_string(active_profile.source);
+}
+
+const char* ov_hardware_get_mode_string(void) {
+    return ov_hw_mode_to_string(current_hw_mode);
 }
 
 void ov_hardware_cleanup(void) {
@@ -1784,6 +1906,8 @@ ov_status_t ov_hardware_get_profile(ov_hw_profile_id_t profile_id, ov_hardware_p
             ov_hardware_detect_host(&host_profile);
         }
         *out_profile = host_profile;
+        out_profile->source = OV_HW_SOURCE_NATIVE;
+        out_profile->is_simulated = false;
         return OV_SUCCESS;
     }
 
@@ -1795,6 +1919,8 @@ ov_status_t ov_hardware_get_profile(ov_hw_profile_id_t profile_id, ov_hardware_p
     for (uint32_t i = 0; i < g_mac_profile_count; i++) {
         if (g_mac_profiles[i].profile_id == profile_id) {
             *out_profile = g_mac_profiles[i];
+            out_profile->source = OV_HW_SOURCE_SIMULATED;
+            out_profile->is_simulated = true;
             return OV_SUCCESS;
         }
     }
@@ -1817,7 +1943,7 @@ ov_status_t ov_hardware_find_profile_by_name(const char *name, ov_hardware_profi
     if (!name || !out_profile) return OV_ERROR_INVALID_PARAM;
 
     /* Check host profile */
-    if (string_contains_nocase(name, "host") || string_contains_nocase(name, "detect")) {
+    if (string_contains_nocase(name, "host") || string_contains_nocase(name, "detect") || string_contains_nocase(name, "native")) {
         return ov_hardware_get_profile(OV_HW_PROFILE_HOST, out_profile);
     }
 
@@ -1847,6 +1973,8 @@ ov_status_t ov_hardware_find_profile_by_name(const char *name, ov_hardware_profi
             !strcasecmp(g_mac_profiles[i].model_identifier, name) ||
             !strcasecmp(g_mac_profiles[i].profile_name, name)) {
             *out_profile = g_mac_profiles[i];
+            out_profile->source = OV_HW_SOURCE_SIMULATED;
+            out_profile->is_simulated = true;
             return OV_SUCCESS;
         }
     }
@@ -1858,6 +1986,8 @@ ov_status_t ov_hardware_find_profile_by_name(const char *name, ov_hardware_profi
             string_contains_nocase(g_mac_profiles[i].model_identifier, name) ||
             string_contains_nocase(g_mac_profiles[i].marketing_name, name)) {
             *out_profile = g_mac_profiles[i];
+            out_profile->source = OV_HW_SOURCE_SIMULATED;
+            out_profile->is_simulated = true;
             return OV_SUCCESS;
         }
     }
@@ -1872,6 +2002,16 @@ ov_status_t ov_hardware_set_active_profile(ov_hw_profile_id_t profile_id) {
 
     active_profile_id = profile_id;
     active_profile = prof;
+
+    if (profile_id == OV_HW_PROFILE_HOST) {
+        current_hw_mode = OV_HW_MODE_NATIVE;
+        active_profile.source = OV_HW_SOURCE_NATIVE;
+        active_profile.is_simulated = false;
+    } else {
+        current_hw_mode = OV_HW_MODE_SIMULATED;
+        active_profile.source = OV_HW_SOURCE_SIMULATED;
+        active_profile.is_simulated = true;
+    }
 
     /* Initialize GPU topology if not explicitly populated */
     if (active_profile.gpu_topology.gpu_count == 0) {
@@ -1896,9 +2036,11 @@ ov_status_t ov_hardware_set_active_profile(ov_hw_profile_id_t profile_id) {
         }
     }
 
-    ov_log_info("Active hardware profile set to: %s (%s, %u GPUs)",
+    ov_log_info("Active hardware profile set to: %s (%s, %u GPUs) [Mode: %s, Source: %s]",
                 active_profile.model_identifier, active_profile.marketing_name,
-                active_profile.gpu_topology.gpu_count);
+                active_profile.gpu_topology.gpu_count,
+                ov_hw_mode_to_string(current_hw_mode),
+                ov_hw_source_to_string(active_profile.source));
     return OV_SUCCESS;
 }
 
@@ -1907,10 +2049,7 @@ ov_status_t ov_hardware_set_active_profile_by_name(const char *name) {
     ov_status_t status = ov_hardware_find_profile_by_name(name, &prof);
     if (status != OV_SUCCESS) return status;
 
-    active_profile_id = prof.profile_id;
-    active_profile = prof;
-    ov_log_info("Active hardware profile set to: %s (%s)", active_profile.model_identifier, active_profile.marketing_name);
-    return OV_SUCCESS;
+    return ov_hardware_set_active_profile(prof.profile_id);
 }
 
 ov_hw_profile_id_t ov_hardware_get_active_profile_id(void) {
@@ -1967,4 +2106,185 @@ const ov_gpu_info_t* ov_hardware_get_gpu_at(uint32_t index) {
 
 const ov_gpu_topology_t* ov_hardware_get_gpu_topology(void) {
     return &active_profile.gpu_topology;
+}
+
+/* ========================================================================= */
+/* Dedicated Real Hardware (Native) Validation & Smoke Test                  */
+/* ========================================================================= */
+
+void ov_hardware_set_native_detect_mock(ov_status_t (*mock_fn)(ov_hardware_profile_t *out_host)) {
+    g_mock_native_detect_fn = mock_fn;
+}
+
+ov_status_t ov_hardware_detect_native_strict(char *out_failure_subsystem, size_t max_len) {
+    if (out_failure_subsystem && max_len > 0) {
+        out_failure_subsystem[0] = '\0';
+    }
+
+    memset(&host_profile, 0, sizeof(host_profile));
+    host_detected = false;
+
+    /* Perform live, real host detection. If mock is active, uses mock. */
+    ov_status_t st = ov_hardware_detect_host(&host_profile);
+    if (st != OV_SUCCESS) {
+        if (out_failure_subsystem && max_len > 0) {
+            snprintf(out_failure_subsystem, max_len, "Host Hardware Detection Layer (%s)", ov_status_to_string(st));
+        }
+        return st;
+    }
+
+    /* Subsystem 1: CPU */
+    if (host_profile.cpu.cores == 0 || host_profile.cpu.model_name[0] == '\0') {
+        if (out_failure_subsystem && max_len > 0) {
+            snprintf(out_failure_subsystem, max_len, "CPU Enumeration (Cores reported: 0 or missing model name)");
+        }
+        return OV_ERROR_HARDWARE;
+    }
+
+    /* Subsystem 2: Memory */
+    if (host_profile.mem.total_bytes == 0) {
+        if (out_failure_subsystem && max_len > 0) {
+            snprintf(out_failure_subsystem, max_len, "Memory Enumeration (Total RAM reported: 0 bytes)");
+        }
+        return OV_ERROR_HARDWARE;
+    }
+
+    /* Subsystem 3: GPU & IOKit Topology */
+    if (host_profile.gpu_topology.gpu_count == 0) {
+        if (out_failure_subsystem && max_len > 0) {
+            snprintf(out_failure_subsystem, max_len, "GPU / IOKit Enumeration (No display controllers discovered via IOKit IOPCIDevice)");
+        }
+        return OV_ERROR_HARDWARE;
+    }
+
+    /* Set active profile strictly to native host */
+    current_hw_mode = OV_HW_MODE_NATIVE;
+    active_profile_id = OV_HW_PROFILE_HOST;
+    active_profile = host_profile;
+    active_profile.source = OV_HW_SOURCE_NATIVE;
+    active_profile.is_simulated = false;
+
+    return OV_SUCCESS;
+}
+
+ov_status_t ov_hardware_validate_native_topology(char *out_err, size_t err_len) {
+    if (out_err && err_len > 0) out_err[0] = '\0';
+
+    if (current_hw_mode != OV_HW_MODE_NATIVE || active_profile.is_simulated || active_profile.source != OV_HW_SOURCE_NATIVE) {
+        if (out_err && err_len > 0) {
+            snprintf(out_err, err_len, "Active configuration is not NATIVE (Mode: %s, Source: %s)",
+                     ov_hw_mode_to_string(current_hw_mode), ov_hw_source_to_string(active_profile.source));
+        }
+        return OV_ERROR_CONFIG;
+    }
+
+    if (active_profile.cpu.cores == 0) {
+        if (out_err && err_len > 0) snprintf(out_err, err_len, "Physical CPU core count is zero");
+        return OV_ERROR_HARDWARE;
+    }
+    if (active_profile.mem.total_bytes == 0) {
+        if (out_err && err_len > 0) snprintf(out_err, err_len, "Physical RAM total size is zero");
+        return OV_ERROR_HARDWARE;
+    }
+    if (active_profile.gpu_topology.gpu_count == 0) {
+        if (out_err && err_len > 0) snprintf(out_err, err_len, "No GPUs enumerated in active topology");
+        return OV_ERROR_HARDWARE;
+    }
+
+    for (uint32_t i = 0; i < active_profile.gpu_topology.gpu_count; i++) {
+        const ov_gpu_info_t *gpu = &active_profile.gpu_topology.gpus[i];
+        if (gpu->model_name[0] == '\0') {
+            if (out_err && err_len > 0) snprintf(out_err, err_len, "GPU %u missing model identifier", i);
+            return OV_ERROR_HARDWARE;
+        }
+        if (gpu->vendor_id == 0 && gpu->type != OV_GPU_SOFTWARE_RASTERIZER) {
+            if (out_err && err_len > 0) snprintf(out_err, err_len, "GPU %u has invalid PCI Vendor ID (0x0000)", i);
+            return OV_ERROR_HARDWARE;
+        }
+    }
+
+    return OV_SUCCESS;
+}
+
+void ov_hardware_print_native_summary(void) {
+    const ov_hardware_profile_t *p = &active_profile;
+    printf("\n================================================================================\n");
+    printf("                  NATIVE HOST HARDWARE DIAGNOSTIC REPORT                        \n");
+    printf("================================================================================\n");
+    printf("Hardware Mode:     NATIVE (Physical Host Machine)\n");
+    printf("Hardware Source:   NATIVE (Read-Only Hardware Probing)\n");
+    printf("Host Model:        %s (%s)\n", p->model_identifier, p->marketing_name);
+    printf("Firmware:          %s (%s)\n", p->firmware_type, p->efi_is_64bit ? "64-bit EFI" : "32-bit EFI");
+    printf("Storage Interface: %s\n", p->storage_interface);
+    printf("--------------------------------------------------------------------------------\n");
+    printf("Host CPU:          %s\n", p->cpu.model_name);
+    printf("Topology:          %u Physical Cores / %u Logical Threads @ %u MHz\n",
+           p->cpu.cores, p->cpu.threads, p->cpu.base_freq_mhz);
+    printf("Instruction Sets:  SSE4.2: %s | AVX: %s | AVX2: %s | AES-NI: %s\n",
+           p->cpu.has_sse42 ? "Yes" : "No", p->cpu.has_avx ? "Yes" : "No",
+           p->cpu.has_avx2 ? "Yes" : "No", p->cpu.has_aesni ? "Yes" : "No");
+    printf("System RAM:        %llu MB Total / %llu MB Available\n",
+           (unsigned long long)(p->mem.total_bytes / (1024 * 1024)),
+           (unsigned long long)(p->mem.available_bytes / (1024 * 1024)));
+    printf("--------------------------------------------------------------------------------\n");
+    printf("GPU Topology:      %u GPU(s) Discovered\n", p->gpu_topology.gpu_count);
+    if (p->gpu_topology.is_muxed_switchable) {
+        printf("Switch Policy:     %s\n", p->gpu_topology.switch_policy);
+    }
+    for (uint32_t i = 0; i < p->gpu_topology.gpu_count; i++) {
+        const ov_gpu_info_t *g = &p->gpu_topology.gpus[i];
+        printf("\n  [GPU %u] %s\n", i, g->model_name);
+        printf("    PCI ID:          Vendor: 0x%04x | Device: 0x%04x\n", g->vendor_id, g->device_id);
+        printf("    Role:            %s%s\n",
+               (i == p->gpu_topology.primary_gpu_index) ? "Primary " : "",
+               (g->vendor_id == 0x8086) ? "Integrated Display Controller" : "Discrete Graphics Processor");
+        printf("    VRAM Exposure:   %s\n", g->vram_description[0] ? g->vram_description : (g->vram_is_detected ? "Reported by IOKit" : "UNKNOWN (Unreported by driver)"));
+        printf("    Metal Support:   %s [%s]\n",
+               ov_metal_support_to_string(g->metal_level),
+               g->metal_source[0] ? g->metal_source : "Derived");
+        printf("    OpenGL Core:     OpenGL %u.%u [%s]\n",
+               g->opengl_major ? g->opengl_major : 4,
+               g->opengl_minor ? g->opengl_minor : 1,
+               g->opengl_source[0] ? g->opengl_source : "macOS Driver Core Profile");
+        printf("    Vulkan Support:  %s [%s]\n",
+               g->supports_vulkan ? "Available" : "No",
+               g->vulkan_source[0] ? g->vulkan_source : "Requires MoltenVK");
+        printf("    Max Texture:     %upx\n", g->max_texture_dimension);
+    }
+    printf("================================================================================\n\n");
+}
+
+ov_status_t ov_hardware_run_smoke_test(void) {
+    char err_buf[256];
+    ov_status_t st = ov_hardware_validate_native_topology(err_buf, sizeof(err_buf));
+    if (st != OV_SUCCESS) {
+        ov_log_error("Smoke test validation failed: %s", err_buf);
+        return st;
+    }
+
+    /* Evaluate with OVResolver across critical workloads */
+    const ov_gpu_topology_t *topo = &active_profile.gpu_topology;
+
+    /* 1. Metal Game Workload */
+    ov_integrated_request_t req_metal = ov_resolver_get_preset_request(OV_WORKLOAD_PRESET_METAL_GAME);
+    ov_resolution_result_t res_metal;
+    st = ov_resolver_evaluate_with_topology(&req_metal, topo, &res_metal);
+    if (st != OV_SUCCESS) {
+        ov_log_error("Smoke test Metal evaluation failed: %s", ov_status_to_string(st));
+        return st;
+    }
+
+    /* 2. Classic OpenGL Workload */
+    ov_integrated_request_t req_gl = ov_resolver_get_preset_request(OV_WORKLOAD_PRESET_OPENGL_CLASSIC);
+    ov_resolution_result_t res_gl;
+    st = ov_resolver_evaluate_with_topology(&req_gl, topo, &res_gl);
+    if (st != OV_SUCCESS) {
+        ov_log_error("Smoke test OpenGL evaluation failed: %s", ov_status_to_string(st));
+        return st;
+    }
+
+    ov_log_info("Smoke test passed: Topology validated, Metal routed to '%s' (%s), OpenGL routed to '%s' (%s)",
+                res_metal.selected_gpu_name, res_metal.gpu_selection_reason,
+                res_gl.selected_gpu_name, res_gl.gpu_selection_reason);
+    return OV_SUCCESS;
 }

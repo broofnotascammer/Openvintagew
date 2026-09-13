@@ -154,8 +154,8 @@ ov_status_t ov_macos_detect_cpu(ov_cpu_info_t *cpu) {
         cpu->base_freq_mhz = (uint32_t)(freq_hz / 1000000ULL);
         cpu->max_freq_mhz = (uint32_t)(freq_hz / 1000000ULL);
     } else {
-        cpu->base_freq_mhz = 2400;
-        cpu->max_freq_mhz = 3200;
+        cpu->base_freq_mhz = 0;
+        cpu->max_freq_mhz = 0;
     }
 
     /* Cache Lines */
@@ -163,17 +163,17 @@ ov_status_t ov_macos_detect_cpu(ov_cpu_info_t *cpu) {
     if (ov_macos_sysctl_uint64("hw.l1dcachesize", &l1_bytes) == 0 && l1_bytes > 0) {
         cpu->l1_cache_kb = (uint32_t)(l1_bytes / 1024ULL);
     } else {
-        cpu->l1_cache_kb = 32;
+        cpu->l1_cache_kb = 0;
     }
     if (ov_macos_sysctl_uint64("hw.l2cachesize", &l2_bytes) == 0 && l2_bytes > 0) {
         cpu->l2_cache_kb = (uint32_t)(l2_bytes / 1024ULL);
     } else {
-        cpu->l2_cache_kb = 256;
+        cpu->l2_cache_kb = 0;
     }
     if (ov_macos_sysctl_uint64("hw.l3cachesize", &l3_bytes) == 0 && l3_bytes > 0) {
         cpu->l3_cache_kb = (uint32_t)(l3_bytes / 1024ULL);
     } else {
-        cpu->l3_cache_kb = 6144;
+        cpu->l3_cache_kb = 0;
     }
 
     /* Query CPU Feature Strings */
@@ -209,8 +209,14 @@ ov_status_t ov_macos_detect_cpu(ov_cpu_info_t *cpu) {
         cpu->type = OV_CPU_INTEL_HASWELL;
     } else if (cpu->has_avx) {
         cpu->type = OV_CPU_INTEL_IVY_BRIDGE;
-    } else {
+    } else if (cpu->has_sse42) {
+        cpu->type = OV_CPU_INTEL_NEHALEM;
+    } else if (cpu->has_sse41) {
+        cpu->type = OV_CPU_INTEL_PENRYN;
+    } else if (cpu->has_sse3) {
         cpu->type = OV_CPU_INTEL_CORE2_DUO;
+    } else {
+        cpu->type = OV_CPU_UNKNOWN;
     }
 #endif
 
@@ -229,7 +235,7 @@ ov_status_t ov_macos_detect_memory(ov_memory_info_t *mem) {
     if (ov_macos_sysctl_uint64("hw.memsize", &memsize) == 0 && memsize > 0) {
         mem->total_bytes = memsize;
     } else {
-        mem->total_bytes = 8ULL * 1024 * 1024 * 1024;
+        mem->total_bytes = 0;
     }
 
     /* Mach Host VM Statistics for Available / Free RAM */
@@ -244,8 +250,8 @@ ov_status_t ov_macos_detect_memory(ov_memory_info_t *mem) {
         mem->available_bytes = free_bytes;
         mem->reserved_bytes = mem->total_bytes > free_bytes ? (mem->total_bytes - free_bytes) : 0;
     } else {
-        mem->available_bytes = mem->total_bytes / 2;
-        mem->reserved_bytes = mem->total_bytes / 2;
+        mem->available_bytes = 0;
+        mem->reserved_bytes = 0;
     }
 
     mem->channels = 2;
@@ -319,56 +325,144 @@ ov_status_t ov_macos_iokit_probe_gpus(ov_gpu_topology_t *out_topo) {
                     CFRelease(model_ref);
                 }
 
-                /* VRAM Size */
+                /* VRAM Size Probing from IOKit */
+                uint32_t mb = 0;
+                bool vram_found = false;
                 CFTypeRef vram_ref = IORegistryEntryCreateCFProperty(service, CFSTR("VRAM,totalMB"), kCFAllocatorDefault, 0);
                 if (vram_ref && CFGetTypeID(vram_ref) == CFDataGetTypeID()) {
-                    uint32_t mb = 0;
                     CFDataGetBytes((CFDataRef)vram_ref, CFRangeMake(0, sizeof(uint32_t)), (UInt8*)&mb);
+                    CFRelease(vram_ref);
+                    if (mb > 0) vram_found = true;
+                }
+
+                if (!vram_found) {
+                    /* Try VRAM,totalsize in bytes */
+                    CFTypeRef vram_size_ref = IORegistryEntryCreateCFProperty(service, CFSTR("VRAM,totalsize"), kCFAllocatorDefault, 0);
+                    if (vram_size_ref && CFGetTypeID(vram_size_ref) == CFDataGetTypeID()) {
+                        uint64_t bytes = 0;
+                        CFIndex dlen = CFDataGetLength((CFDataRef)vram_size_ref);
+                        if (dlen == sizeof(uint64_t)) {
+                            CFDataGetBytes((CFDataRef)vram_size_ref, CFRangeMake(0, sizeof(uint64_t)), (UInt8*)&bytes);
+                        } else if (dlen == sizeof(uint32_t)) {
+                            uint32_t b32 = 0;
+                            CFDataGetBytes((CFDataRef)vram_size_ref, CFRangeMake(0, sizeof(uint32_t)), (UInt8*)&b32);
+                            bytes = b32;
+                        }
+                        CFRelease(vram_size_ref);
+                        if (bytes > 0) {
+                            mb = (uint32_t)(bytes / (1024ULL * 1024ULL));
+                            vram_found = true;
+                        }
+                    }
+                }
+
+                if (vram_found && mb > 0) {
                     gpu->vram_mb = mb;
                     gpu->vram_bytes = (uint64_t)mb * 1024ULL * 1024ULL;
-                    CFRelease(vram_ref);
+                    gpu->vram_is_detected = true;
+                    snprintf(gpu->vram_description, sizeof(gpu->vram_description), "%u MB (Dedicated VRAM reported by IOKit)", mb);
+                } else {
+                    gpu->vram_mb = 0;
+                    gpu->vram_bytes = 0;
+                    gpu->vram_is_detected = false;
+                    if (gpu->vendor_id == 0x8086) {
+                        snprintf(gpu->vram_description, sizeof(gpu->vram_description), "UNKNOWN (Dynamic System Allocation / Shared RAM)");
+                    } else {
+                        snprintf(gpu->vram_description, sizeof(gpu->vram_description), "UNKNOWN (Not exposed by IOKit)");
+                    }
                 }
 
                 /* Categorize Architecture & Integrated vs Discrete */
                 if (gpu->vendor_id == 0x8086) {
-                    /* Intel Integrated */
-                    gpu->type = OV_GPU_INTEL_GEN7_HD4000;
-                    gpu->arch_gen = OV_GPU_ARCH_INTEL_GEN7;
-                    if (gpu->model_name[0] == '\0') snprintf(gpu->model_name, sizeof(gpu->model_name), "Intel HD Graphics 4000 (Integrated)");
-                    gpu->supports_metal = true;
-                    gpu->metal_level = OV_METAL_1;
+                    /* Intel Display Controller */
+                    if (gpu->device_id == 0x0166 || gpu->device_id == 0x0162) {
+                        gpu->type = OV_GPU_INTEL_GEN7_HD4000;
+                        gpu->arch_gen = OV_GPU_ARCH_INTEL_GEN7;
+                        if (gpu->model_name[0] == '\0') snprintf(gpu->model_name, sizeof(gpu->model_name), "Intel HD Graphics 4000 (Integrated)");
+                        gpu->supports_metal = true;
+                        gpu->metal_level = OV_METAL_1;
+                        snprintf(gpu->metal_source, sizeof(gpu->metal_source), "Derived from Architecture: Intel Gen7 HD4000 (Metal 1 on Catalina 10.15)");
+                    } else if (gpu->device_id == 0x0116 || gpu->device_id == 0x0126 || gpu->device_id == 0x0102) {
+                        gpu->type = OV_GPU_INTEL_GEN6_HD3000;
+                        gpu->arch_gen = OV_GPU_ARCH_INTEL_GEN6;
+                        if (gpu->model_name[0] == '\0') snprintf(gpu->model_name, sizeof(gpu->model_name), "Intel HD Graphics 3000 (Integrated)");
+                        gpu->supports_metal = false;
+                        gpu->metal_level = OV_METAL_NONE;
+                        snprintf(gpu->metal_source, sizeof(gpu->metal_source), "Unsupported: Intel Gen6 lacks hardware Metal support");
+                    } else if (gpu->device_id >= 0x0400 && gpu->device_id <= 0x042E) {
+                        gpu->type = OV_GPU_INTEL_GEN75_HASWELL;
+                        gpu->arch_gen = OV_GPU_ARCH_INTEL_GEN75;
+                        if (gpu->model_name[0] == '\0') snprintf(gpu->model_name, sizeof(gpu->model_name), "Intel Iris/HD Graphics (Haswell)");
+                        gpu->supports_metal = true;
+                        gpu->metal_level = OV_METAL_2;
+                        snprintf(gpu->metal_source, sizeof(gpu->metal_source), "Derived from Architecture: Intel Haswell Gen7.5 (Metal 2)");
+                    } else {
+                        gpu->type = OV_GPU_UNKNOWN;
+                        gpu->arch_gen = OV_GPU_ARCH_UNKNOWN;
+                        if (gpu->model_name[0] == '\0') snprintf(gpu->model_name, sizeof(gpu->model_name), "Intel Display Controller (PCI 0x8086:0x%04x)", gpu->device_id);
+                        snprintf(gpu->metal_source, sizeof(gpu->metal_source), "Unknown: Requires physical Metal runtime query");
+                    }
                     gpu->supports_opengl_core = true;
                     gpu->opengl_major = 4;
                     gpu->opengl_minor = 1;
-                    gpu->supports_compute = true;
+                    snprintf(gpu->opengl_source, sizeof(gpu->opengl_source), "Derived from macOS Driver Architecture: OpenGL 4.1 Core Profile");
+                    gpu->supports_vulkan = (gpu->supports_metal);
+                    if (gpu->supports_metal) {
+                        snprintf(gpu->vulkan_source, sizeof(gpu->vulkan_source), "Translated via MoltenVK (Requires external libMoltenVK.dylib runtime)");
+                    } else {
+                        snprintf(gpu->vulkan_source, sizeof(gpu->vulkan_source), "Unsupported: Requires Metal-capable hardware for MoltenVK translation");
+                    }
                     gpu->max_texture_dimension = 8192;
                     out_topo->has_integrated_gpu = true;
                 } else if (gpu->vendor_id == 0x10DE) {
-                    /* NVIDIA Discrete */
-                    gpu->type = OV_GPU_NVIDIA_GEFORCE;
-                    gpu->arch_gen = OV_GPU_ARCH_NVIDIA_KEPLER;
-                    if (gpu->model_name[0] == '\0') snprintf(gpu->model_name, sizeof(gpu->model_name), "NVIDIA GeForce GT 650M (Discrete GK107)");
-                    gpu->supports_metal = true;
-                    gpu->metal_level = OV_METAL_2;
-                    gpu->supports_vulkan = true;
+                    /* NVIDIA Display Controller */
+                    if (gpu->device_id == 0x0FD5) {
+                        gpu->type = OV_GPU_NVIDIA_GEFORCE;
+                        gpu->arch_gen = OV_GPU_ARCH_NVIDIA_KEPLER;
+                        if (gpu->model_name[0] == '\0') snprintf(gpu->model_name, sizeof(gpu->model_name), "NVIDIA GeForce GT 650M (Discrete GK107)");
+                        gpu->supports_metal = true;
+                        gpu->metal_level = OV_METAL_2;
+                        snprintf(gpu->metal_source, sizeof(gpu->metal_source), "Derived from Architecture: NVIDIA GK107 Kepler (Metal 2 on Catalina 10.15)");
+                        gpu->supports_vulkan = true;
+                        snprintf(gpu->vulkan_source, sizeof(gpu->vulkan_source), "Translated via MoltenVK (Metal 2 Kepler Host)");
+                    } else {
+                        gpu->type = OV_GPU_UNKNOWN;
+                        gpu->arch_gen = OV_GPU_ARCH_UNKNOWN;
+                        if (gpu->model_name[0] == '\0') snprintf(gpu->model_name, sizeof(gpu->model_name), "NVIDIA Display Controller (PCI 0x10DE:0x%04x)", gpu->device_id);
+                        snprintf(gpu->metal_source, sizeof(gpu->metal_source), "Unknown: Requires physical Metal runtime query");
+                        gpu->supports_vulkan = false;
+                        snprintf(gpu->vulkan_source, sizeof(gpu->vulkan_source), "Unknown: Requires physical runtime query");
+                    }
                     gpu->supports_opengl_core = true;
                     gpu->opengl_major = 4;
                     gpu->opengl_minor = 1;
-                    gpu->supports_compute = true;
+                    snprintf(gpu->opengl_source, sizeof(gpu->opengl_source), "Derived from macOS Driver Architecture: OpenGL 4.1 Core Profile");
                     gpu->max_texture_dimension = 16384;
                     out_topo->has_discrete_gpu = true;
                     out_topo->discrete_gpu_index = found;
                 } else if (gpu->vendor_id == 0x1002) {
                     /* AMD Radeon Discrete */
                     gpu->type = OV_GPU_AMD_RADEON;
-                    gpu->arch_gen = OV_GPU_ARCH_AMD_GCN_1_4;
-                    gpu->supports_metal = true;
-                    gpu->metal_level = OV_METAL_2;
+                    gpu->arch_gen = OV_GPU_ARCH_UNKNOWN;
+                    if (gpu->model_name[0] == '\0') snprintf(gpu->model_name, sizeof(gpu->model_name), "AMD Radeon (PCI 0x1002:0x%04x)", gpu->device_id);
                     gpu->supports_opengl_core = true;
                     gpu->opengl_major = 4;
                     gpu->opengl_minor = 1;
+                    snprintf(gpu->opengl_source, sizeof(gpu->opengl_source), "Derived from macOS Driver Architecture: OpenGL 4.1 Core Profile");
+                    gpu->supports_metal = true;
+                    gpu->metal_level = OV_METAL_2;
+                    snprintf(gpu->metal_source, sizeof(gpu->metal_source), "Derived from Architecture: AMD Driver Metal 2");
+                    gpu->supports_vulkan = true;
+                    snprintf(gpu->vulkan_source, sizeof(gpu->vulkan_source), "Translated via MoltenVK");
                     out_topo->has_discrete_gpu = true;
                     out_topo->discrete_gpu_index = found;
+                } else {
+                    gpu->type = OV_GPU_UNKNOWN;
+                    gpu->arch_gen = OV_GPU_ARCH_UNKNOWN;
+                    if (gpu->model_name[0] == '\0') snprintf(gpu->model_name, sizeof(gpu->model_name), "PCI Display Controller (0x%04x:0x%04x)", gpu->vendor_id, gpu->device_id);
+                    snprintf(gpu->metal_source, sizeof(gpu->metal_source), "Unknown");
+                    snprintf(gpu->opengl_source, sizeof(gpu->opengl_source), "Unknown");
+                    snprintf(gpu->vulkan_source, sizeof(gpu->vulkan_source), "Unknown");
                 }
 
                 gpu->has_graphics = true;
@@ -396,41 +490,50 @@ ov_status_t ov_macos_detect_host(ov_hardware_profile_t *out_host) {
     memset(out_host, 0, sizeof(ov_hardware_profile_t));
 
 #if defined(__APPLE__)
-    out_host->source = OV_HW_SOURCE_HOST_DETECTED;
+    out_host->profile_id = OV_HW_PROFILE_HOST;
+    out_host->source = OV_HW_SOURCE_NATIVE;
     out_host->is_simulated = false;
     out_host->is_mac_host = true;
 
     /* Model Identifier (e.g. "MacBookPro9,1") */
     char model[64] = {0};
-    if (ov_macos_sysctl_string("hw.model", model, sizeof(model)) == 0) {
+    if (ov_macos_sysctl_string("hw.model", model, sizeof(model)) == 0 && model[0] != '\0') {
         snprintf(out_host->model_identifier, sizeof(out_host->model_identifier), "%s", model);
         snprintf(out_host->profile_name, sizeof(out_host->profile_name), "%s", model);
+        snprintf(out_host->marketing_name, sizeof(out_host->marketing_name), "Apple %s", model);
     } else {
-        snprintf(out_host->model_identifier, sizeof(out_host->model_identifier), "Apple Mac Host");
+        snprintf(out_host->model_identifier, sizeof(out_host->model_identifier), "Mac-Host");
+        snprintf(out_host->profile_name, sizeof(out_host->profile_name), "Mac-Host");
+        snprintf(out_host->marketing_name, sizeof(out_host->marketing_name), "Apple Mac Host");
     }
 
     /* CPU */
-    ov_macos_detect_cpu(&out_host->cpu);
+    ov_status_t cpu_st = ov_macos_detect_cpu(&out_host->cpu);
+    if (cpu_st != OV_SUCCESS || out_host->cpu.cores == 0) {
+        ov_log_error("Native CPU detection failed via Darwin sysctl");
+        return OV_ERROR_HARDWARE;
+    }
 
     /* Memory */
-    ov_macos_detect_memory(&out_host->mem);
+    ov_status_t mem_st = ov_macos_detect_memory(&out_host->mem);
+    if (mem_st != OV_SUCCESS || out_host->mem.total_bytes == 0) {
+        ov_log_error("Native memory detection failed via Darwin sysctl (hw.memsize)");
+        return OV_ERROR_HARDWARE;
+    }
 
     /* GPUs via IOKit */
     ov_gpu_topology_t topo;
-    if (ov_macos_iokit_probe_gpus(&topo) == OV_SUCCESS && topo.gpu_count > 0) {
-        out_host->gpu_topology = topo;
-        out_host->gpu = topo.gpus[topo.primary_gpu_index];
-        out_host->has_discrete_gpu = topo.has_discrete_gpu;
-        out_host->is_switchable_graphics = topo.is_muxed_switchable;
-        if (topo.has_discrete_gpu) {
-            out_host->secondary_gpu = topo.gpus[topo.discrete_gpu_index];
-        }
-    } else {
-        /* Fallback Host Virtual GPU */
-        out_host->gpu.type = OV_GPU_SOFTWARE_RASTERIZER;
-        snprintf(out_host->gpu.model_name, sizeof(out_host->gpu.model_name), "Apple Virtual/Host Display");
-        out_host->gpu.supports_metal = true;
-        out_host->gpu.metal_level = OV_METAL_1;
+    ov_status_t gpu_st = ov_macos_iokit_probe_gpus(&topo);
+    if (gpu_st != OV_SUCCESS || topo.gpu_count == 0) {
+        ov_log_error("Native GPU enumeration failed via IOKit IOPCIDevice");
+        return OV_ERROR_HARDWARE;
+    }
+    out_host->gpu_topology = topo;
+    out_host->gpu = topo.gpus[topo.primary_gpu_index];
+    out_host->has_discrete_gpu = topo.has_discrete_gpu;
+    out_host->is_switchable_graphics = topo.is_muxed_switchable;
+    if (topo.has_discrete_gpu) {
+        out_host->secondary_gpu = topo.gpus[topo.discrete_gpu_index];
     }
 
     /* Firmware */

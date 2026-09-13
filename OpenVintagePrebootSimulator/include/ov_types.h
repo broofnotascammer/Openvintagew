@@ -27,11 +27,21 @@ typedef enum {
 
 const char* ov_status_to_string(ov_status_t status);
 
+/* Hardware Detection / Simulation Operating Mode */
+typedef enum {
+    OV_HW_MODE_NATIVE = 0,     /* Physical Mac / host platform native hardware detection */
+    OV_HW_MODE_SIMULATED = 1   /* Simulated hardware profile target */
+} ov_hw_mode_t;
+
+const char* ov_hw_mode_to_string(ov_hw_mode_t mode);
+
 /* Hardware Detection / Simulation Origin */
 typedef enum {
     OV_HW_SOURCE_UNKNOWN = 0,
-    OV_HW_SOURCE_HOST_DETECTED = 1,     /* Real physical/virtual host hardware detected */
-    OV_HW_SOURCE_SIMULATED_PROFILE = 2, /* Simulated hardware profile */
+    OV_HW_SOURCE_NATIVE = 1,            /* Real physical Mac / host hardware detected */
+    OV_HW_SOURCE_HOST_DETECTED = 1,     /* Backward-compatible alias */
+    OV_HW_SOURCE_SIMULATED = 2,         /* Simulated hardware profile */
+    OV_HW_SOURCE_SIMULATED_PROFILE = 2, /* Backward-compatible alias */
     OV_HW_SOURCE_INFERRED = 3,          /* Heuristic/inferred value */
     OV_HW_SOURCE_UNAVAILABLE = 4,       /* Feature/hardware probe unavailable */
     OV_HW_SOURCE_FALLBACK = 5,          /* Safe software/virtual fallback */

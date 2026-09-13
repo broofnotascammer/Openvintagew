@@ -159,6 +159,274 @@ static void test_hardware_and_mac_profiles(void) {
     ov_hardware_cleanup();
 }
 
+/* 2b. Strict Separation of Native vs. Simulated Hardware Architecture */
+static void test_native_vs_simulated_hardware_architecture(void) {
+    TEST_SECTION("2b. Native vs. Simulated Hardware Architecture Verification");
+
+    ov_status_t st = ov_hardware_init();
+    TEST_ASSERT(st == OV_SUCCESS, "ov_hardware_init succeeds");
+
+    /* 1. Verify default mode is strictly NATIVE */
+    ov_hw_mode_t mode = ov_hardware_get_mode();
+    TEST_ASSERT(mode == OV_HW_MODE_NATIVE, "Default hardware mode is strictly NATIVE");
+
+    ov_hw_source_t source = ov_hardware_get_source();
+    TEST_ASSERT(source == OV_HW_SOURCE_NATIVE, "Default hardware source is strictly NATIVE");
+
+    const char *mode_str = ov_hardware_get_mode_string();
+    TEST_ASSERT(strcmp(mode_str, "NATIVE") == 0, "Hardware mode string is 'NATIVE'");
+
+    const char *source_str = ov_hardware_get_source_string();
+    TEST_ASSERT(strcmp(source_str, "NATIVE") == 0, "Hardware source string is 'NATIVE'");
+
+    const ov_hardware_profile_t *active = ov_hardware_get_active_profile();
+    TEST_ASSERT(active != NULL, "Active profile is valid");
+    TEST_ASSERT(active->profile_id == OV_HW_PROFILE_HOST, "Active profile is OV_HW_PROFILE_HOST");
+    TEST_ASSERT(active->is_simulated == false, "Native profile is NOT flagged as simulated");
+    TEST_ASSERT(active->source == OV_HW_SOURCE_NATIVE, "Active profile source is OV_HW_SOURCE_NATIVE");
+
+    /* 2. Verify native mode does not fall back to MBP9,1 profile data */
+    ov_hardware_profile_t host_p;
+    st = ov_hardware_get_profile(OV_HW_PROFILE_HOST, &host_p);
+    TEST_ASSERT(st == OV_SUCCESS, "Host profile retrieval succeeds");
+    TEST_ASSERT(host_p.is_simulated == false, "Host profile has is_simulated == false");
+
+    /* 3. Verify switching to SIMULATED mode for a specific profile */
+    st = ov_hardware_set_active_profile(OV_HW_PROFILE_MBP91_IVY_BRIDGE);
+    TEST_ASSERT(st == OV_SUCCESS, "Switched to simulated MBP9,1 profile");
+    TEST_ASSERT(ov_hardware_get_mode() == OV_HW_MODE_SIMULATED, "Hardware mode is now SIMULATED");
+    TEST_ASSERT(ov_hardware_get_source() == OV_HW_SOURCE_SIMULATED, "Hardware source is now SIMULATED");
+
+    active = ov_hardware_get_active_profile();
+    TEST_ASSERT(active != NULL, "Simulated active profile is non-null");
+    TEST_ASSERT(active->is_simulated == true, "Simulated profile has is_simulated == true");
+    TEST_ASSERT(active->source == OV_HW_SOURCE_SIMULATED, "Simulated profile has source == SIMULATED");
+    TEST_ASSERT(strcmp(active->model_identifier, "MacBookPro9,1") == 0, "Active model is MacBookPro9,1");
+
+    /* 4. Verify switching profiles by name in simulated mode */
+    st = ov_hardware_set_active_profile_by_name("MacPro5,1");
+    TEST_ASSERT(st == OV_SUCCESS, "Switched to simulated MacPro5,1 profile");
+    TEST_ASSERT(ov_hardware_get_mode() == OV_HW_MODE_SIMULATED, "Mode remains SIMULATED");
+    active = ov_hardware_get_active_profile();
+    TEST_ASSERT(strcmp(active->model_identifier, "MacPro5,1") == 0, "Active model is MacPro5,1");
+    TEST_ASSERT(active->is_simulated == true, "Profile is flagged as simulated");
+
+    /* 5. Verify switching back to NATIVE mode */
+    st = ov_hardware_set_mode(OV_HW_MODE_NATIVE);
+    TEST_ASSERT(st == OV_SUCCESS, "ov_hardware_set_mode(OV_HW_MODE_NATIVE) succeeds");
+    TEST_ASSERT(ov_hardware_get_mode() == OV_HW_MODE_NATIVE, "Hardware mode is back to NATIVE");
+    TEST_ASSERT(ov_hardware_get_source() == OV_HW_SOURCE_NATIVE, "Hardware source is back to NATIVE");
+
+    active = ov_hardware_get_active_profile();
+    TEST_ASSERT(active != NULL, "Active profile is non-null");
+    TEST_ASSERT(active->profile_id == OV_HW_PROFILE_HOST, "Active profile restored to host");
+    TEST_ASSERT(active->is_simulated == false, "Restored profile is not simulated");
+
+    /* 6. Verify diagnostic report reflects native vs simulated modes */
+    ov_unified_cache_init();
+    ov_diagnostics_init();
+
+    ov_diagnostic_report_t native_rep;
+    st = ov_diagnostics_generate_report(&native_rep);
+    TEST_ASSERT(st == OV_SUCCESS, "Generated diagnostic report in NATIVE mode");
+    TEST_ASSERT(strcmp(native_rep.hardware_mode, "NATIVE") == 0, "Report hardware_mode is NATIVE");
+    TEST_ASSERT(strcmp(native_rep.hardware_source, "NATIVE") == 0, "Report hardware_source is NATIVE");
+    TEST_ASSERT(strstr(native_rep.simulated_target_model, "Native") != NULL, "Report simulated_target_model indicates native");
+
+    /* Switch to simulated and check report */
+    ov_hardware_set_active_profile(OV_HW_PROFILE_MBP91_IVY_BRIDGE);
+    ov_diagnostic_report_t sim_rep;
+    st = ov_diagnostics_generate_report(&sim_rep);
+    TEST_ASSERT(st == OV_SUCCESS, "Generated diagnostic report in SIMULATED mode");
+    TEST_ASSERT(strcmp(sim_rep.hardware_mode, "SIMULATED") == 0, "Report hardware_mode is SIMULATED");
+    TEST_ASSERT(strcmp(sim_rep.hardware_source, "SIMULATED") == 0, "Report hardware_source is SIMULATED");
+    TEST_ASSERT(strcmp(sim_rep.simulated_target_model, "MacBookPro9,1") == 0, "Report simulated target is MacBookPro9,1");
+
+    ov_diagnostics_cleanup();
+    ov_unified_cache_cleanup();
+    ov_hardware_cleanup();
+}
+
+/* 2c. Dedicated Real Hardware (macOS Native) Execution & Smoke Test */
+static ov_status_t mock_native_mbp91_success(ov_hardware_profile_t *out_host) {
+    if (!out_host) return OV_ERROR_INVALID_PARAM;
+    memset(out_host, 0, sizeof(ov_hardware_profile_t));
+    snprintf(out_host->profile_name, sizeof(out_host->profile_name), "Native Host (MacBookPro9,1)");
+    snprintf(out_host->model_identifier, sizeof(out_host->model_identifier), "MacBookPro9,1");
+    snprintf(out_host->marketing_name, sizeof(out_host->marketing_name), "MacBook Pro (15-inch, Mid 2012)");
+    snprintf(out_host->description, sizeof(out_host->description), "Mac-4B7AC7E43945597E Mid 2012 Unibody");
+    out_host->is_mac_host = true;
+    out_host->efi_is_64bit = true;
+    snprintf(out_host->firmware_type, sizeof(out_host->firmware_type), "Apple EFI 2.0");
+    snprintf(out_host->storage_interface, sizeof(out_host->storage_interface), "SATA III 6Gb/s AHCI");
+
+    out_host->cpu.type = OV_CPU_INTEL_IVY_BRIDGE;
+    snprintf(out_host->cpu.model_name, sizeof(out_host->cpu.model_name), "Intel(R) Core(TM) i7-3615QM CPU @ 2.30GHz");
+    out_host->cpu.cores = 4;
+    out_host->cpu.threads = 8;
+    out_host->cpu.base_freq_mhz = 2300;
+    out_host->cpu.max_freq_mhz = 3300;
+    out_host->cpu.has_sse42 = true;
+    out_host->cpu.has_avx = true;
+    out_host->cpu.has_avx2 = false;
+    out_host->cpu.has_aesni = true;
+
+    out_host->mem.total_bytes = 8ULL * 1024 * 1024 * 1024;
+    out_host->mem.available_bytes = 6ULL * 1024 * 1024 * 1024;
+    out_host->mem.channels = 2;
+    out_host->mem.frequency_mhz = 1600;
+    snprintf(out_host->mem.memory_type, sizeof(out_host->mem.memory_type), "DDR3-1600");
+
+    out_host->gpu_topology.gpu_count = 2;
+    out_host->gpu_topology.primary_gpu_index = 0;
+    out_host->gpu_topology.discrete_gpu_index = 1;
+    out_host->gpu_topology.has_integrated_gpu = true;
+    out_host->gpu_topology.has_discrete_gpu = true;
+    out_host->gpu_topology.is_muxed_switchable = true;
+    snprintf(out_host->gpu_topology.switch_policy, sizeof(out_host->gpu_topology.switch_policy), "Apple GMUX Hardware Multiplexed");
+
+    ov_gpu_info_t *g0 = &out_host->gpu_topology.gpus[0];
+    g0->type = OV_GPU_INTEL_GEN7_HD4000;
+    g0->arch_gen = OV_GPU_ARCH_INTEL_GEN7;
+    snprintf(g0->model_name, sizeof(g0->model_name), "Intel HD Graphics 4000");
+    g0->vendor_id = 0x8086;
+    g0->device_id = 0x0166;
+    g0->vram_bytes = 1536ULL * 1024 * 1024;
+    g0->vram_is_detected = true;
+    snprintf(g0->vram_description, sizeof(g0->vram_description), "1536 MB (Dynamically Allocated from Unified System RAM)");
+    g0->metal_level = OV_METAL_1;
+    g0->supports_metal = true;
+    snprintf(g0->metal_source, sizeof(g0->metal_source), "Derived from Architecture: Intel Gen7 Ivy Bridge HD 4000");
+    g0->supports_opengl_core = true;
+    g0->opengl_major = 4;
+    g0->opengl_minor = 1;
+    snprintf(g0->opengl_source, sizeof(g0->opengl_source), "Derived from Driver Architecture: OpenGL 4.1 Core Profile");
+    g0->supports_vulkan = false;
+    snprintf(g0->vulkan_source, sizeof(g0->vulkan_source), "Derived: Vulkan Unsupported on Intel Gen7 HD 4000");
+    g0->max_texture_dimension = 16384;
+
+    ov_gpu_info_t *g1 = &out_host->gpu_topology.gpus[1];
+    g1->type = OV_GPU_NVIDIA_GEFORCE;
+    g1->arch_gen = OV_GPU_ARCH_NVIDIA_KEPLER;
+    snprintf(g1->model_name, sizeof(g1->model_name), "NVIDIA GeForce GT 650M");
+    g1->vendor_id = 0x10DE;
+    g1->device_id = 0x0FD5;
+    g1->vram_bytes = 1024ULL * 1024 * 1024;
+    g1->vram_is_detected = true;
+    snprintf(g1->vram_description, sizeof(g1->vram_description), "1024 MB GDDR5 Dedicated VRAM");
+    g1->metal_level = OV_METAL_2;
+    g1->supports_metal = true;
+    snprintf(g1->metal_source, sizeof(g1->metal_source), "Derived from Architecture: NVIDIA GK107 Kepler");
+    g1->supports_opengl_core = true;
+    g1->opengl_major = 4;
+    g1->opengl_minor = 1;
+    snprintf(g1->opengl_source, sizeof(g1->opengl_source), "Derived from Driver Architecture: OpenGL 4.1 Core Profile");
+    g1->supports_vulkan = true;
+    snprintf(g1->vulkan_source, sizeof(g1->vulkan_source), "Derived: Requires MoltenVK runtime translation");
+    g1->max_texture_dimension = 16384;
+
+    out_host->gpu = *g0;
+    out_host->secondary_gpu = *g1;
+    out_host->has_discrete_gpu = true;
+
+    return OV_SUCCESS;
+}
+
+static ov_status_t mock_native_detect_missing_gpu(ov_hardware_profile_t *out_host) {
+    if (!out_host) return OV_ERROR_INVALID_PARAM;
+    memset(out_host, 0, sizeof(ov_hardware_profile_t));
+    out_host->cpu.cores = 4;
+    snprintf(out_host->cpu.model_name, sizeof(out_host->cpu.model_name), "Intel Core i7");
+    out_host->mem.total_bytes = 8ULL * 1024 * 1024 * 1024;
+    out_host->gpu_topology.gpu_count = 0; /* Missing GPU */
+    return OV_SUCCESS;
+}
+
+static void test_dedicated_real_hardware_mode(void) {
+    TEST_SECTION("2c. Dedicated Real Hardware (macOS Native) Execution & Smoke Test");
+
+    ov_status_t st = ov_hardware_init();
+    TEST_ASSERT(st == OV_SUCCESS, "ov_hardware_init succeeds");
+
+    /* 1. Test failure path: Strict detection fails loudly when GPU subsystem missing */
+    ov_hardware_set_native_detect_mock(mock_native_detect_missing_gpu);
+    char fail_reason[256];
+    st = ov_hardware_detect_native_strict(fail_reason, sizeof(fail_reason));
+    TEST_ASSERT(st == OV_ERROR_HARDWARE, "Strict detection fails with OV_ERROR_HARDWARE on broken GPU discovery");
+    TEST_ASSERT(strstr(fail_reason, "GPU") != NULL, "Diagnostic indicates GPU failure");
+
+    /* 2. Test successful physical host probing with realistic MBP9,1 IOKit topology */
+    ov_hardware_set_native_detect_mock(mock_native_mbp91_success);
+    st = ov_hardware_detect_native_strict(fail_reason, sizeof(fail_reason));
+    TEST_ASSERT(st == OV_SUCCESS, "Strict native detection succeeds with realistic host mock");
+
+    /* Verify operating mode and source */
+    TEST_ASSERT(ov_hardware_get_mode() == OV_HW_MODE_NATIVE, "Operating mode is strictly NATIVE");
+    TEST_ASSERT(ov_hardware_get_source() == OV_HW_SOURCE_NATIVE, "Hardware source is strictly NATIVE");
+    const ov_hardware_profile_t *active = ov_hardware_get_active_profile();
+    TEST_ASSERT(active != NULL, "Active profile is valid");
+    TEST_ASSERT(active->is_simulated == false, "Active profile is marked NOT simulated");
+    TEST_ASSERT(active->is_mac_host == true, "Active profile is marked Genuine Apple Host");
+
+    /* Verify GPU topology & VRAM source accuracy */
+    TEST_ASSERT(active->gpu_topology.gpu_count == 2, "Discovered exactly 2 GPUs");
+    const ov_gpu_info_t *g0 = &active->gpu_topology.gpus[0];
+    TEST_ASSERT(g0->vendor_id == 0x8086, "GPU 0 vendor is Intel");
+    TEST_ASSERT(g0->vram_is_detected == true, "GPU 0 VRAM detection tracked");
+    TEST_ASSERT(strstr(g0->metal_source, "Derived") != NULL, "Metal capability explicitly labeled as derived");
+
+    const ov_gpu_info_t *g1 = &active->gpu_topology.gpus[1];
+    TEST_ASSERT(g1->vendor_id == 0x10DE, "GPU 1 vendor is NVIDIA");
+    TEST_ASSERT(g1->metal_level == OV_METAL_2, "NVIDIA GT 650M Kepler supports Metal 2");
+    TEST_ASSERT(strstr(g1->vulkan_source, "MoltenVK") != NULL, "Vulkan capability specifies MoltenVK translation");
+
+    /* 3. Test topology validation */
+    char err_buf[256];
+    st = ov_hardware_validate_native_topology(err_buf, sizeof(err_buf));
+    TEST_ASSERT(st == OV_SUCCESS, "ov_hardware_validate_native_topology succeeds on valid topology");
+
+    /* 4. Test smoke test (resolution of Metal + OpenGL workloads) */
+    st = ov_hardware_run_smoke_test();
+    TEST_ASSERT(st == OV_SUCCESS, "ov_hardware_run_smoke_test succeeds");
+
+    /* 5. Test Native Diagnostic Exporters (Text and JSON) */
+    const char *test_native_txt = "/tmp/ov_test_native_audit.txt";
+    const char *test_native_json = "/tmp/ov_test_native_audit.json";
+
+    st = ov_diagnostics_export_native_text(test_native_txt);
+    TEST_ASSERT(st == OV_SUCCESS, "ov_diagnostics_export_native_text succeeds");
+    FILE *ftxt = fopen(test_native_txt, "r");
+    TEST_ASSERT(ftxt != NULL, "Native text audit file was created");
+    if (ftxt) {
+        char buf[1024];
+        size_t n = fread(buf, 1, sizeof(buf) - 1, ftxt);
+        buf[n] = '\0';
+        TEST_ASSERT(strstr(buf, "Hardware Source:     NATIVE") != NULL, "Text report contains Hardware Source: NATIVE");
+        TEST_ASSERT(strstr(buf, "Host Model ID:       MacBookPro9,1") != NULL, "Text report contains Host Model ID");
+        TEST_ASSERT(strstr(buf, "Genuine Apple Host:  YES") != NULL, "Text report contains Genuine Apple Host: YES");
+        fclose(ftxt);
+    }
+
+    st = ov_diagnostics_export_native_json(test_native_json);
+    TEST_ASSERT(st == OV_SUCCESS, "ov_diagnostics_export_native_json succeeds");
+    FILE *fjson = fopen(test_native_json, "r");
+    TEST_ASSERT(fjson != NULL, "Native JSON audit file was created");
+    if (fjson) {
+        char buf[2048];
+        size_t n = fread(buf, 1, sizeof(buf) - 1, fjson);
+        buf[n] = '\0';
+        TEST_ASSERT(strstr(buf, "\"hardware_source\": \"NATIVE\"") != NULL, "JSON report contains hardware_source NATIVE");
+        TEST_ASSERT(strstr(buf, "\"is_simulated\": false") != NULL, "JSON report contains is_simulated false");
+        TEST_ASSERT(strstr(buf, "\"is_mac_host\": true") != NULL, "JSON report contains is_mac_host true");
+        TEST_ASSERT(strstr(buf, "\"pci_vendor_id\": \"0x8086\"") != NULL, "JSON report contains PCI Vendor ID 0x8086");
+        fclose(fjson);
+    }
+
+    /* Reset mock hook */
+    ov_hardware_set_native_detect_mock(NULL);
+    ov_hardware_cleanup();
+}
+
 /* 3. macOS Version Compatibility Matrix Test */
 static void test_macos_compatibility(void) {
     TEST_SECTION("3. macOS Architecture & OCLP Compatibility Engine");
@@ -520,6 +788,8 @@ int main(void) {
 
     test_memory_subsystem();
     test_hardware_and_mac_profiles();
+    test_native_vs_simulated_hardware_architecture();
+    test_dedicated_real_hardware_mode();
     test_macos_compatibility();
     test_cpu_engine_execution();
     test_gpu_engine_pipeline();

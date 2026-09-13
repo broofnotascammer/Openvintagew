@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>OpenVintage Pre-Boot Diagnostic Report</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0f172a; color: #f8fafc; margin: 0; padding: 24px; }
+    .container { max-width: 960px; margin: 0 auto; }
+    .card { background: #1e293b; border-radius: 12px; padding: 20px; margin-bottom: 20px; border: 1px solid #334155; }
+    h1 { color: #38bdf8; margin-top: 0; font-size: 24px; }
+    h2 { color: #94a3b8; font-size: 16px; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid #334155; padding-bottom: 8px; margin-top: 0; }
+    .score-box { display: inline-block; background: #0369a1; padding: 6px 16px; border-radius: 20px; font-weight: bold; font-size: 18px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
+    .prop { margin-bottom: 8px; font-size: 14px; }
+    .label { color: #94a3b8; }
+    .val { font-weight: 600; color: #f1f5f9; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="card">
+      <h1>OpenVintage Pre-Boot Diagnostic Audit</h1>
+      <div class="score-box">Health Score: 95 / 100</div>
+      <p style="color:#cbd5e1; margin-top:12px;">Hardware Mode: <span class="val">SIMULATED</span> | Hardware Source: <span class="val">SIMULATED</span> | Host: <span class="val">Linux x86_64 Host</span></p>
+      <p style="color:#cbd5e1; margin-top:4px;">Simulated Target: <span class="val">MacBookPro9,1</span> | Platform: OpenVintage EFI Platform | Active Model: MacBookPro9,1 (MacBook Pro (15-inch, Mid 2012))</p>
+      <p style="color:#38bdf8; margin-top:4px;">macOS 12 Monterey: SUPPORTED WITH PATCHES (OCLP) (Supported via OCLP. Apple removed Kepler NVIDIA drivers; OCLP reinstalls Kepler Metal bundle.)</p>
+    </div>
+    <div class="grid">
+      <div class="card">
+        <h2>Processor (CPU)</h2>
+        <div class="prop"><span class="label">Model:</span> <span class="val">Intel Core i7-3615QM</span></div>
+        <div class="prop"><span class="label">Topology:</span> <span class="val">4 Cores / 8 Threads</span></div>
+        <div class="prop"><span class="label">AVX / AVX2:</span> <span class="val">Yes / No</span></div>
+        <div class="prop"><span class="label">ARM64 JIT:</span> <span class="val">Supported</span></div>
+      </div>
+      <div class="card">
+        <h2>Graphics (GPU)</h2>
+        <div class="prop"><span class="label">Model:</span> <span class="val">Intel HD Graphics 4000 (Integrated)</span></div>
+        <div class="prop"><span class="label">VRAM:</span> <span class="val">1536 MB</span></div>
+        <div class="prop"><span class="label">Max Texture:</span> <span class="val">8192px</span></div>
+        <div class="prop"><span class="label">API Status:</span> <span class="val">OpenGL Core [Native], Vulkan [OVIR-GPU Trans], Metal [Native]</span></div>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Unified Cache & Quirks</h2>
+      <div class="prop"><span class="label">Generation:</span> <span class="val">Gen 1</span></div>
+      <div class="prop"><span class="label">Cache Hit Rate:</span> <span class="val">50%</span></div>
+      <div class="prop"><span class="label">Active Quirks:</span> <span class="val">Texture clamping <= 8192px; Metal emulation via GLSL core; AVX2 emulated via SSE4.2 if absent.</span></div>
+    </div>
+  </div>
+</body>
+</html>

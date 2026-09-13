@@ -1,0 +1,42 @@
+{
+  "openvintage": {
+    "health_score": 95,
+    "hardware_mode": "SIMULATED",
+    "hardware_source": "SIMULATED",
+    "host_detected_model": "Linux x86_64 Host",
+    "simulated_target_model": "MacBookPro9,1",
+    "platform": "OpenVintage EFI Platform",
+    "firmware": "OpenVintage Systems / EDK2",
+    "mac_model": "MacBookPro9,1",
+    "mac_name": "MacBook Pro (15-inch, Mid 2012)",
+    "macos_compatibility": "macOS 12 Monterey: SUPPORTED WITH PATCHES (OCLP) (Supported via OCLP. Apple removed Kepler NVIDIA drivers; OCLP reinstalls Kepler Metal bundle.)",
+    "oclp_patchable": true,
+    "policy": "OVIR Adaptive Hybrid Routing (Phase 5)",
+    "cpu": {
+      "model": "Intel Core i7-3615QM",
+      "cores": 4,
+      "threads": 8,
+      "base_clock_mhz": 2300,
+      "sse42": true,
+      "avx": true,
+      "avx2": false
+    },
+    "gpu": {
+      "model": "Intel HD Graphics 4000 (Integrated)",
+      "pci_id": "0x8086:0x0166",
+      "vram_bytes": 1610612736,
+      "max_texture": 8192,
+      "compute": true
+    },
+    "memory": {
+      "total_ram_bytes": 8589934592,
+      "free_ram_bytes": 7516192768,
+      "leaks_detected": false
+    },
+    "cache": {
+      "generation": 1,
+      "entries": 64,
+      "hit_rate_pct": 50
+    }
+  }
+}

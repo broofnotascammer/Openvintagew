@@ -7,6 +7,17 @@ and this project adheres to Semantic Versioning.
 
 ---
 
+## [0.6.0] - 2026-09-11
+### Added
+- **Native vs. Simulated Hardware Architecture Separation**:
+  - Refactored `ov_hardware_init` in `src/ov_hardware.c` to strictly separate native physical host hardware execution from simulated Mac profile evaluation.
+  - Default initialization now invokes `ov_platform_detect_host` directly, binding to `OV_HW_MODE_NATIVE`, `OV_HW_SOURCE_NATIVE`, and `OV_HW_PROFILE_HOST` with `is_simulated = false`.
+  - Eliminated silent fallback to `MacBookPro9,1` Ivy Bridge profile on native host systems; simulated profiles are only activated upon explicit user or test request.
+  - Implemented accessors and mode control: `ov_hardware_get_mode`, `ov_hardware_get_source`, `ov_hardware_get_mode_string`, `ov_hardware_get_source_string`, and `ov_hardware_set_mode`.
+  - Enhanced CLI options in `src/main.c`: added `-n` / `--native` to enforce physical host detection and `-s` / `--simulate <model>` to evaluate specific simulated profiles.
+  - Updated diagnostic reports (`ov_diagnostics`) across text, JSON, and HTML exports to include `hardware_mode`, `hardware_source`, `host_detected_model`, and `simulated_target_model`.
+  - Added automated test suite `test_native_vs_simulated_hardware_architecture` in `tests/test_runner.c`, verifying initial native mode, simulated mode transitions, profile-by-name lookups, mode reversion, and diagnostic export consistency (161 tests passing).
+
 ## [0.5.0] - 2026-09-08
 ### Added
 - **Phase 5 Full Ecosystem Integration & Optimization**:

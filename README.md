@@ -188,7 +188,43 @@ Phase 5 establishes end-to-end integration of all OpenVintage systems into a uni
 
 ---
 
-## 7. Engineering Discipline
+## 7. Native vs. Simulated Hardware Architecture
+
+OpenVintage enforces a strict architectural boundary between **Native Hardware Execution** and **Simulated Hardware Evaluation**:
+
+```
+                              Hardware Mode Selector
+                                        │
+                ┌───────────────────────┴───────────────────────┐
+                ▼                                               ▼
+         [ NATIVE MODE ]                                [ SIMULATED MODE ]
+   Default on macOS & Linux                        Activated via --simulate <mac>
+                │                                               │
+   Physical OS Hardware Query                      Static Architectural Database
+   - macOS: sysctlbyname, IOKit                    - 30+ verified Mac models
+   - Linux: /proc, sysfs, libpci                   - Multi-GPU topologies (GMUX)
+                │                                               │
+   Active Profile: OV_HW_PROFILE_HOST              Active Profile: e.g. MBP91
+   is_simulated = false                            is_simulated = true
+   source = OV_HW_SOURCE_NATIVE                    source = OV_HW_SOURCE_SIMULATED
+```
+
+### Key Architectural Rules
+1. **Zero Silent Fallback**: The native hardware backend interrogates actual physical hardware via OS platform interfaces. It **never** silently substitutes simulated profile data (e.g. `MacBookPro9,1`) when running in native mode.
+2. **True macOS Detection**:
+   - Machine Model: `sysctlbyname("hw.model")`
+   - CPU Details: `machdep.cpu.brand_string`, `hw.physicalcpu`, `hw.logicalcpu`, `hw.cpufrequency`
+   - Physical Memory: `hw.memsize`
+   - GPU Discovery: `IOKit` (`IOAccelerator`, `IOPCIDevice`) probing vendor ID, device ID, and VRAM without hardcoding.
+3. **Transparent Reporting**: Diagnostics (Text, JSON, HTML) and runtime logs explicitly output:
+   - `hardware_mode`: `NATIVE` | `SIMULATED`
+   - `hardware_source`: `NATIVE` | `SIMULATED`
+   - `host_detected_model`: Real host machine identifier
+   - `simulated_target_model`: Simulated target model when in simulated mode, or `N/A (Native Mode)`
+
+---
+
+## 8. Engineering Discipline
 
 1. **Deterministic Verification**: No component is marked complete without actual binary artifacts and passing execution tests.
 2. **Modular Decoupling**: Subsystems adhere to clear PI/UEFI and POSIX boundaries with zero circular dependencies.
