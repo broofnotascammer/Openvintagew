@@ -1,17 +1,5 @@
 import SwiftUI
 
-@main
-struct OpenVintageApp: App {
-    @StateObject private var hardware = NativeHardwareModel()
-
-    var body: some Scene {
-        WindowGroup {
-            ContentView(hardware: hardware)
-                .frame(minWidth: 980, minHeight: 650)
-        }
-    }
-}
-
 struct ContentView: View {
     @ObservedObject var hardware: NativeHardwareModel
     @State private var selection = "Overview"
@@ -21,7 +9,6 @@ struct ContentView: View {
     var body: some View {
         ZStack {
             VisualEffectView(material: .underWindowBackground, blendingMode: .behindWindow)
-                .ignoresSafeArea()
 
             HStack(spacing: 0) {
                 sidebar
@@ -35,8 +22,8 @@ struct ContentView: View {
     private var sidebar: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 10) {
-                Image(systemName: "cpu")
-                    .font(.system(size: 22, weight: .medium))
+                Text("OV")
+                    .font(.system(size: 15, weight: .bold))
                     .frame(width: 34, height: 34)
                     .background(Color.accentColor.opacity(0.14))
                     .clipShape(RoundedRectangle(cornerRadius: 9))
@@ -54,8 +41,13 @@ struct ContentView: View {
 
             ForEach(sections, id: \.self) { item in
                 Button(action: { selection = item }) {
-                    Label(item, systemImage: icon(for: item))
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                    HStack(spacing: 9) {
+                        Text(icon(for: item))
+                            .frame(width: 18)
+                        Text(item)
+                        Spacer()
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .buttonStyle(SidebarButtonStyle(selected: selection == item))
             }
@@ -67,7 +59,7 @@ struct ContentView: View {
                     .fill(Color.green)
                     .frame(width: 7, height: 7)
                 Text("Darwin hardware bridge ready")
-                    .font(.caption2)
+                    .font(.caption)
                     .foregroundColor(.secondary)
             }
             .padding(14)
@@ -88,7 +80,8 @@ struct ContentView: View {
                 }
                 Spacer()
                 Button(action: hardware.refresh) {
-                    Label("Refresh", systemImage: "arrow.clockwise")
+                    Text("↻  Refresh")
+                        .font(.system(size: 12, weight: .medium))
                 }
             }
             .padding(.horizontal, 28)
@@ -109,33 +102,33 @@ struct ContentView: View {
         VStack(alignment: .leading, spacing: 16) {
             GlassCard {
                 HStack(spacing: 18) {
-                    Image(systemName: "desktopcomputer")
-                        .font(.system(size: 34, weight: .light))
+                    Text("⌘")
+                        .font(.system(size: 30, weight: .light))
                         .frame(width: 58, height: 58)
                         .background(Color.primary.opacity(0.07))
                         .clipShape(RoundedRectangle(cornerRadius: 15))
                     VStack(alignment: .leading, spacing: 5) {
                         Text(hardware.model)
-                            .font(.title3.weight(.semibold))
+                            .font(.headline)
                         Text("Source: NATIVE • Darwin")
-                            .font(.caption.monospaced())
+                            .font(.system(size: 11, design: .monospaced))
                             .foregroundColor(.secondary)
-                        Text("Read-only hardware discovery. No boot configuration changes are made by Refresh.")
+                        Text("Read-only hardware discovery. Refresh does not change boot configuration.")
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }
                     Spacer()
-                    StatusPill(text: "NATIVE", systemImage: "checkmark.shield")
+                    StatusPill(text: "NATIVE")
                 }
             }
 
             HStack(spacing: 16) {
-                InfoCard(title: "CPU", value: hardware.cpu, icon: "cpu")
-                InfoCard(title: "Memory", value: hardware.memory, icon: "memorychip")
+                InfoCard(title: "CPU", value: hardware.cpu, icon: "CPU")
+                InfoCard(title: "Memory", value: hardware.memory, icon: "RAM")
             }
             HStack(spacing: 16) {
-                InfoCard(title: "Darwin", value: hardware.darwin, icon: "apple.logo")
-                InfoCard(title: "Kernel", value: hardware.kernel, icon: "terminal")
+                InfoCard(title: "Darwin", value: hardware.darwin, icon: "OS")
+                InfoCard(title: "Kernel", value: hardware.kernel, icon: "K")
             }
 
             GlassCard {
@@ -150,7 +143,8 @@ struct ContentView: View {
                     }
                     ForEach(hardware.gpus, id: \.self) { gpu in
                         HStack {
-                            Image(systemName: "rectangle.3.group")
+                            Text("GPU")
+                                .font(.system(size: 10, weight: .bold, design: .monospaced))
                                 .foregroundColor(.secondary)
                             Text(gpu)
                                 .font(.body)
@@ -163,7 +157,7 @@ struct ContentView: View {
 
             GlassCard {
                 VStack(alignment: .leading, spacing: 10) {
-                    Label("Architecture", systemImage: "arrow.triangle.branch")
+                    Text("⌘  Architecture")
                         .font(.headline)
                     Text("The native macOS application owns the Darwin-facing layer. The browser UI remains a preview/development surface; privileged boot and hardware operations belong behind the native Core/HAL boundary.")
                         .font(.subheadline)
@@ -179,8 +173,8 @@ struct ContentView: View {
         VStack(alignment: .leading, spacing: 14) {
             GlassCard {
                 Text("\(selection) is part of the native application shell.")
-                    .font(.title3.weight(.semibold))
-                Text("The UI is intentionally native SwiftUI/AppKit rather than a website. Core features can be connected to the existing OpenVintage C subsystems through the application boundary without granting the UI direct privileged access.")
+                    .font(.headline)
+                Text("This is the native SwiftUI/AppKit application, not the Vite website. Core features are connected through the application boundary so the UI never performs privileged boot operations directly.")
                     .font(.subheadline)
                     .foregroundColor(.secondary)
             }
@@ -190,15 +184,15 @@ struct ContentView: View {
 
     private func icon(for item: String) -> String {
         switch item {
-        case "Overview": return "square.grid.2x2"
-        case "Hardware": return "cpu"
-        case "Simulator": return "slider.horizontal.3"
-        case "Compatibility": return "checkmark.shield"
-        case "Performance": return "gauge"
-        case "Boot": return "arrow.up.right.circle"
-        case "Integrations": return "puzzlepiece.extension"
-        case "Diagnostics": return "stethoscope"
-        default: return "gearshape"
+        case "Overview": return "⌂"
+        case "Hardware": return "CPU"
+        case "Simulator": return "SIM"
+        case "Compatibility": return "✓"
+        case "Performance": return "↗"
+        case "Boot": return "↑"
+        case "Integrations": return "+"
+        case "Diagnostics": return "!"
+        default: return "⚙"
         }
     }
 }
@@ -239,15 +233,18 @@ struct InfoCard: View {
     var body: some View {
         GlassCard {
             HStack(spacing: 12) {
-                Image(systemName: icon)
-                    .font(.title3)
+                Text(icon)
+                    .font(.system(size: 11, weight: .bold, design: .monospaced))
                     .foregroundColor(.secondary)
+                    .frame(width: 30, height: 30)
+                    .background(Color.primary.opacity(0.06))
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
                 VStack(alignment: .leading, spacing: 3) {
                     Text(title)
                         .font(.caption)
                         .foregroundColor(.secondary)
                     Text(value)
-                        .font(.body.weight(.medium))
+                        .font(.system(size: 13, weight: .medium))
                         .lineLimit(2)
                 }
             }
@@ -257,10 +254,9 @@ struct InfoCard: View {
 
 struct StatusPill: View {
     let text: String
-    let systemImage: String
 
     var body: some View {
-        Label(text, systemImage: systemImage)
+        Text("✓  \(text)")
             .font(.caption.weight(.semibold))
             .padding(.horizontal, 10)
             .padding(.vertical, 6)
