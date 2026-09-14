@@ -25,7 +25,6 @@ CFLAGS ?= -Wall -Wextra -O2 -g \
 LDFLAGS ?= -lpthread -lm -lpci
 
 CLI_TARGET = bin/openvintage-cli
-SIM_TARGET = bin/openvintage-preboot-simulator
 TEST_TARGET = bin/ov-test-suite
 
 all: $(CLI_TARGET) $(TEST_TARGET)
@@ -57,6 +56,7 @@ $(CLI_TARGET): app/cli/main_cli.c app/core_api/ov_app_api.c \
                OpenVintagePrebootSimulator/platform/macos/ov_hardware_macos.c
 	@mkdir -p bin
 	$(CC) $(CFLAGS) $^ -o $@ $(LDFLAGS)
+	@chmod +x $@
 	@echo "OpenVintage CLI built successfully: $@"
 
 $(TEST_TARGET): OpenVintagePrebootSimulator/tests/test_runner.c \
@@ -86,11 +86,14 @@ $(TEST_TARGET): OpenVintagePrebootSimulator/tests/test_runner.c \
                OpenVintagePrebootSimulator/platform/macos/ov_hardware_macos.c
 	@mkdir -p bin
 	$(CC) $(CFLAGS) $^ -o $@ $(LDFLAGS)
+	@chmod +x $@
 	@echo "OpenVintage Test Suite built successfully: $@"
 
 cli: $(CLI_TARGET)
+	@chmod +x $(CLI_TARGET)
 
 test: $(TEST_TARGET)
+	@chmod +x $(TEST_TARGET)
 	./$(TEST_TARGET)
 
 clean:
