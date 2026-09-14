@@ -107,6 +107,7 @@ jobs:
             src/ov_diagnostics.c \
             src/ov_core.c \
             src/ov_ui.c \
+            src/ov_perf_profile.c \
             platform/common/ov_platform.c \
             platform/macos/ov_hardware_macos.c \
             -target x86_64-apple-macos10.15 \
@@ -130,7 +131,7 @@ jobs:
         run: |
           set -euo pipefail
           cd OpenVintagePrebootSimulator
-          ./bin/openvintage-simulator-macos-x86_64 --help || true
+          ./bin/openvintage-simulator-macos-x86_64 --help
 
       - name: Run MBP9,1 compatibility simulation
         shell: bash
