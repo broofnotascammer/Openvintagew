@@ -1,11 +1,10 @@
-name: OpenVintage macOS Intel Build & Test
+name: OpenVintage Build & Test
 
 on:
   workflow_dispatch:
   push:
     branches:
       - main
-      - feature/preboot-simulator
   pull_request:
     branches:
       - main
@@ -14,8 +13,34 @@ permissions:
   contents: read
 
 jobs:
+  frontend:
+    name: Web preview — typecheck, tests, build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout OpenVintage
+        uses: actions/checkout@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install frontend dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Typecheck frontend
+        run: npm run lint
+
+      - name: Run frontend tests
+        run: npm run test:frontend
+
+      - name: Build browser preview
+        run: npm run build
+
   macos-intel:
-    name: macOS Intel x86_64 — Catalina-compatible
+    name: macOS Intel x86_64 — Catalina-compatible core
     runs-on: macos-15-intel
 
     steps:
@@ -44,7 +69,6 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          echo "=== Git revision ==="
           git log -1 --oneline
           git rev-parse HEAD
           test -n "${GITHUB_SHA}"
@@ -84,45 +108,20 @@ jobs:
           cd OpenVintagePrebootSimulator
           mkdir -p build/macos-ci bin
           clang \
-            -Wall \
-            -Wextra \
-            -O2 \
-            -g \
-            -Iinclude \
-            -Iplatform/common \
-            -Iplatform/macos \
+            -Wall -Wextra -O2 -g \
+            -Iinclude -Iplatform/common -Iplatform/macos \
             tests/test_runner.c \
-            src/ov_types.c \
-            src/ov_logger.c \
-            src/ov_memory.c \
-            src/ov_hardware.c \
-            src/ov_macos_compat.c \
-            src/ov_resolver.c \
-            src/ov_cpu_engine.c \
-            src/ov_gpu_engine.c \
-            src/ov_resource_manager.c \
-            src/ov_unified_cache.c \
-            src/ov_compatibility.c \
-            src/ov_benchmark.c \
-            src/ov_diagnostics.c \
-            src/ov_core.c \
-            src/ov_ui.c \
-            src/ov_perf_profile.c \
-            src/ov_boot_picker.c \
-            src/ov_deployment.c \
-            src/ov_oclp_adapter.c \
-            src/ov_refind_adapter.c \
-            src/ov_security.c \
-            platform/common/ov_platform.c \
-            platform/macos/ov_hardware_macos.c \
+            src/ov_types.c src/ov_logger.c src/ov_memory.c src/ov_hardware.c \
+            src/ov_macos_compat.c src/ov_resolver.c src/ov_cpu_engine.c src/ov_gpu_engine.c \
+            src/ov_resource_manager.c src/ov_unified_cache.c src/ov_compatibility.c \
+            src/ov_benchmark.c src/ov_diagnostics.c src/ov_core.c src/ov_ui.c \
+            src/ov_perf_profile.c src/ov_boot_picker.c src/ov_deployment.c \
+            src/ov_oclp_adapter.c src/ov_refind_adapter.c src/ov_security.c \
+            platform/common/ov_platform.c platform/macos/ov_hardware_macos.c \
             -target x86_64-apple-macos10.15 \
             -o bin/test_runner_macos-x86_64 \
-            -lpthread \
-            -lm \
-            -framework CoreFoundation \
-            -framework IOKit \
-            -framework Metal \
-            -framework OpenGL
+            -lpthread -lm \
+            -framework CoreFoundation -framework IOKit -framework Metal -framework OpenGL
 
       - name: Run native macOS API test runner
         shell: bash
@@ -144,39 +143,75 @@ jobs:
           set -euo pipefail
           cd OpenVintagePrebootSimulator
           ./bin/openvintage-simulator-macos-x86_64 \
-            --cli \
-            --mac MBP9,1 \
-            --compat-matrix \
-            --target-os monterey \
-            --bench \
-            --report ci_mbp91_report.txt \
-            --html ci_mbp91_report.html \
-            --json ci_mbp91_report.json
+            --cli --mac MBP9,1 --compat-matrix --target-os monterey --bench \
+            --report ci_mbp91_report.txt --html ci_mbp91_report.html --json ci_mbp91_report.json
 
-      - name: Collect CI reports
+      - name: Collect core CI reports
         if: always()
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p ci-artifacts
-          BINARY="OpenVintagePrebootSimulator/bin/openvintage-simulator-macos-x86_64"
-          TEST_RUNNER="OpenVintagePrebootSimulator/bin/test_runner_macos-x86_64"
-          if [ -f "$BINARY" ]; then cp "$BINARY" ci-artifacts/; fi
-          if [ -f "$TEST_RUNNER" ]; then cp "$TEST_RUNNER" ci-artifacts/; fi
-          if [ -f OpenVintagePrebootSimulator/ci_mbp91_report.txt ]; then cp OpenVintagePrebootSimulator/ci_mbp91_report.txt ci-artifacts/; fi
-          if [ -f OpenVintagePrebootSimulator/ci_mbp91_report.html ]; then cp OpenVintagePrebootSimulator/ci_mbp91_report.html ci-artifacts/; fi
-          if [ -f OpenVintagePrebootSimulator/ci_mbp91_report.json ]; then cp OpenVintagePrebootSimulator/ci_mbp91_report.json ci-artifacts/; fi
-          if [ -n "$(find ci-artifacts -type f -print -quit)" ]; then
+          for FILE in \
+            OpenVintagePrebootSimulator/bin/openvintage-simulator-macos-x86_64 \
+            OpenVintagePrebootSimulator/bin/test_runner_macos-x86_64 \
+            OpenVintagePrebootSimulator/ci_mbp91_report.txt \
+            OpenVintagePrebootSimulator/ci_mbp91_report.html \
+            OpenVintagePrebootSimulator/ci_mbp91_report.json; do
+            if [ -f "$FILE" ]; then cp "$FILE" ci-artifacts/; fi
+          done
+          if find ci-artifacts -type f -print -quit | grep -q .; then
             shasum -a 256 ci-artifacts/* > ci-artifacts/SHA256SUMS.txt
-          else
-            echo "No build artifacts were produced."
           fi
 
-      - name: Upload macOS Intel artifacts
+      - name: Upload macOS Intel core artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: openvintage-macos-intel-x86_64
           path: ci-artifacts/
           if-no-files-found: warn
+          retention-days: 14
+
+  macos-app:
+    name: Native macOS application — universal
+    runs-on: macos-15-intel
+    needs: [frontend, macos-intel]
+
+    steps:
+      - name: Checkout OpenVintage
+        uses: actions/checkout@v6
+
+      - name: Build native OpenVintage.app
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash macOS/OpenVintageApp/build.sh
+
+      - name: Verify native app bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP="build/OpenVintageApp/OpenVintage.app"
+          test -d "$APP"
+          test -x "$APP/Contents/MacOS/OpenVintage"
+          file "$APP/Contents/MacOS/OpenVintage"
+          lipo -info "$APP/Contents/MacOS/OpenVintage"
+          codesign --verify --deep --strict "$APP"
+          plutil -p "$APP/Contents/Info.plist"
+
+      - name: Package native macOS application
+        shell: bash
+        run: |
+          set -euo pipefail
+          ditto -c -k --sequesterRsrc --keepParent \
+            build/OpenVintageApp/OpenVintage.app \
+            build/OpenVintageApp/OpenVintage-macOS-universal.zip
+
+      - name: Upload native macOS application
+        uses: actions/upload-artifact@v4
+        with:
+          name: openvintage-macos-universal-app
+          path: build/OpenVintageApp/OpenVintage-macOS-universal.zip
+          if-no-files-found: error
           retention-days: 14
