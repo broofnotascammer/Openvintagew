@@ -10,22 +10,30 @@ CONTENTS="$APP_BUNDLE/Contents"
 rm -rf "$BUILD_DIR"
 mkdir -p "$CONTENTS/MacOS" "$CONTENTS/Resources"
 
-xcrun swiftc \
-  -O \
-  -target x86_64-apple-macos10.15 \
-  -framework SwiftUI \
-  -framework AppKit \
-  -framework IOKit \
-  -framework CoreFoundation \
-  "$APP_DIR/AppMain.swift" \
-  "$APP_DIR/VisualEffectView.swift" \
-  "$APP_DIR/NativeHardware.swift" \
-  -o "$CONTENTS/MacOS/OpenVintage"
+COMMON_FLAGS=(
+  -O
+  -framework SwiftUI
+  -framework AppKit
+  -framework IOKit
+  -framework CoreFoundation
+  "$APP_DIR/AppMain.swift"
+  "$APP_DIR/VisualEffectView.swift"
+  "$APP_DIR/NativeHardware.swift"
+)
+
+xcrun swiftc "${COMMON_FLAGS[@]}" -target x86_64-apple-macos10.15 -o "$BUILD_DIR/OpenVintage-x86_64"
+xcrun swiftc "${COMMON_FLAGS[@]}" -target arm64-apple-macos11.0 -o "$BUILD_DIR/OpenVintage-arm64"
+
+lipo -create \
+  -output "$CONTENTS/MacOS/OpenVintage" \
+  "$BUILD_DIR/OpenVintage-x86_64" \
+  "$BUILD_DIR/OpenVintage-arm64"
 
 cp "$APP_DIR/Info.plist" "$CONTENTS/Info.plist"
 
 codesign --force --deep --sign - "$APP_BUNDLE"
 
 file "$CONTENTS/MacOS/OpenVintage"
+lipo -info "$CONTENTS/MacOS/OpenVintage"
 plutil -p "$CONTENTS/Info.plist"
-echo "Built $APP_BUNDLE"
+echo "Built universal $APP_BUNDLE"
