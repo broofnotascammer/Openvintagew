@@ -34,7 +34,7 @@ export const WindowHeader: React.FC<WindowHeaderProps> = ({
   return (
     <header 
       id="macos-window-header"
-      className="h-13 px-4 flex items-center justify-between border-b border-black/10 dark:border-white/10 select-none bg-neutral-100/50 dark:bg-neutral-900/40 backdrop-blur-md sticky top-0 z-30"
+      className="h-13 px-4 flex items-center justify-between border-b border-black/10 dark:border-white/10 select-none bg-neutral-100/60 dark:bg-black/55 backdrop-blur-2xl sticky top-0 z-30 dark:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.14)]"
     >
       {/* Traffic Lights & Title */}
       <div className="flex items-center gap-4">

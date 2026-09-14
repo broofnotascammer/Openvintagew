@@ -92,8 +92,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 onClick={() => onTabChange(item.id)}
                 className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-all group ${
                   isSelected
-                    ? 'bg-blue-600/15 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300 font-semibold shadow-xs'
-                    : 'text-neutral-600 hover:text-neutral-900 hover:bg-black/5 dark:text-neutral-400 dark:hover:text-neutral-200 dark:hover:bg-white/5'
+                    ? 'bg-blue-600/20 text-blue-700 dark:bg-blue-500/25 dark:text-blue-300 font-semibold shadow-xs border border-blue-500/30 dark:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.15)]'
+                    : 'text-neutral-600 hover:text-neutral-900 hover:bg-black/5 dark:text-neutral-400 dark:hover:text-neutral-100 dark:hover:bg-white/8'
                 }`}
               >
                 <div className="flex items-center gap-2.5">

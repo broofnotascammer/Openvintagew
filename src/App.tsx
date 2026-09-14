@@ -85,15 +85,19 @@ export default function App() {
     const root = document.documentElement;
     if (theme === 'dark') {
       root.classList.add('dark');
+      root.classList.remove('light');
     } else if (theme === 'light') {
       root.classList.remove('dark');
+      root.classList.add('light');
     } else {
       // System mode
       const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
       if (prefersDark) {
         root.classList.add('dark');
+        root.classList.remove('light');
       } else {
         root.classList.remove('dark');
+        root.classList.add('light');
       }
     }
   }, [theme]);
@@ -143,17 +147,24 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-neutral-900 text-neutral-900 dark:text-neutral-100 flex flex-col items-center justify-center p-0 sm:p-4 md:p-6 lg:p-8 font-sans selection:bg-blue-500/30 selection:text-blue-200 transition-colors">
-      {/* Background wallpaper glow */}
+    <div className="min-h-screen bg-black text-neutral-100 flex flex-col items-center justify-center p-0 sm:p-4 md:p-6 lg:p-8 font-sans selection:bg-blue-500/30 selection:text-blue-200 transition-colors relative overflow-hidden">
+      {/* Background macOS desktop wallpaper glow to enable rich glassmorphic refraction */}
       <div 
-        className="fixed inset-0 pointer-events-none bg-gradient-to-tr from-blue-900/10 via-neutral-900/40 to-violet-900/10 dark:from-neutral-950 dark:via-[#0c1017] dark:to-[#111726]" 
+        className="fixed inset-0 pointer-events-none" 
         aria-hidden="true" 
-      />
+      >
+        <div className="absolute inset-0 bg-black" />
+        {/* Dynamic deep glass refraction glows */}
+        <div className="absolute -top-[15%] left-[10%] w-[650px] h-[650px] rounded-full bg-blue-600/15 blur-[130px] dark:opacity-85 opacity-30 pointer-events-none" />
+        <div className="absolute -bottom-[15%] right-[10%] w-[700px] h-[700px] rounded-full bg-purple-600/15 blur-[150px] dark:opacity-80 opacity-25 pointer-events-none" />
+        <div className="absolute top-[35%] right-[25%] w-[500px] h-[500px] rounded-full bg-indigo-500/10 blur-[120px] dark:opacity-65 opacity-20 pointer-events-none" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_80%_at_50%_0%,rgba(120,119,198,0.12),transparent)]" />
+      </div>
 
       {/* Main macOS Desktop Applet Window Frame */}
       <div 
         id="macos-applet-window"
-        className="relative z-10 w-full max-w-7xl h-[100vh] sm:h-[90vh] sm:min-h-[640px] flex flex-col rounded-none sm:rounded-2xl macos-window-light dark:macos-window-dark overflow-hidden shadow-2xl border-0 sm:border border-black/10 dark:border-white/10"
+        className="relative z-10 w-full max-w-7xl h-[100vh] sm:h-[90vh] sm:min-h-[640px] flex flex-col rounded-none sm:rounded-2xl macos-window-light dark:macos-window-dark overflow-hidden shadow-2xl border-0 sm:border border-black/10 dark:border-white/12"
       >
         {/* macOS Window Titlebar & Controls */}
         <WindowHeader
