@@ -38,6 +38,25 @@ jobs:
       - name: Build browser preview
         run: npm run build
 
+  linux-core:
+    name: Linux core / CLI — build and tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout OpenVintage
+        uses: actions/checkout@v6
+
+      - name: Install native build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential libpci-dev
+
+      - name: Build OpenVintage CLI
+        run: make cli
+
+      - name: Run OpenVintage test suite
+        run: make test
+
   macos-intel:
     name: macOS Intel x86_64 — Catalina-compatible core
     runs-on: macos-15-intel
