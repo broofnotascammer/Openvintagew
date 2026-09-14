@@ -63,8 +63,7 @@ final class NativeHardwareModel: ObservableObject {
 
             var isDisplay = false
             if let number = classValue as? NSNumber {
-                let classCode = number.uint32Value >> 8
-                isDisplay = (classCode == 0x03)
+                isDisplay = (number.uint32Value >> 8) == 0x03
             } else if let data = classValue as? Data, data.count >= 3 {
                 isDisplay = data[data.startIndex.advanced(by: 2)] == 0x03
             }
@@ -94,9 +93,11 @@ final class NativeHardwareModel: ObservableObject {
         guard let value = IORegistryEntryCreateCFProperty(service, key as CFString, kCFAllocatorDefault, 0)?.takeRetainedValue() else { return nil }
         if let number = value as? NSNumber { return number.uint32Value }
         if let data = value as? Data, data.count >= 4 {
-            return data.withUnsafeBytes { raw in
-                raw.loadUnaligned(as: UInt32.self).bigEndian
+            var result: UInt32 = 0
+            for byte in data.prefix(4) {
+                result = (result << 8) | UInt32(byte)
             }
+            return result
         }
         return nil
     }
