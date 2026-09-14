@@ -22,7 +22,9 @@ typedef enum {
     OV_ERROR_NOT_FOUND = 6,
     OV_ERROR_OUT_OF_RESOURCES = 7,
     OV_ERROR_UNSUPPORTED = 8,
-    OV_ERROR_INTEGRITY = 9
+    OV_ERROR_INTEGRITY = 9,
+    OV_ERROR_PERMISSION_DENIED = 10,
+    OV_ERROR_GENERIC = 11
 } ov_status_t;
 
 const char* ov_status_to_string(ov_status_t status);
@@ -240,5 +242,88 @@ typedef struct {
     uint32_t estimated_cost;
     char reason[256];
 } ov_resolution_t;
+
+/* ========================================================================= */
+/* Phase 6 Architecture Extensions                                           */
+/* ========================================================================= */
+
+/* Dedicated Compatibility Categories */
+typedef enum {
+    OV_COMPAT_CAT_NATIVELY_SUPPORTED = 0,
+    OV_COMPAT_CAT_SUPPORTED_WITH_CONFIG = 1,
+    OV_COMPAT_CAT_SUPPORTED_WITH_OCLP = 2,
+    OV_COMPAT_CAT_SUPPORTED_WITH_OPENCORE = 3,
+    OV_COMPAT_CAT_SUPPORTED_WITH_REFIND = 4,
+    OV_COMPAT_CAT_EXPERIMENTAL = 5,
+    OV_COMPAT_CAT_UNSUPPORTED = 6,
+    OV_COMPAT_CAT_SIMULATED_ONLY = 7,
+    OV_COMPAT_CAT_COUNT
+} ov_compat_category_t;
+
+const char* ov_compat_category_to_string(ov_compat_category_t cat);
+
+/* Hardware-Aware Performance Profiles */
+typedef enum {
+    OV_PERF_PROFILE_MAX_PERFORMANCE = 0,
+    OV_PERF_PROFILE_GAMING = 1,
+    OV_PERF_PROFILE_BALANCED = 2,
+    OV_PERF_PROFILE_BATTERY_EFFICIENCY = 3,
+    OV_PERF_PROFILE_COMPATIBILITY = 4,
+    OV_PERF_PROFILE_CUSTOM = 5,
+    OV_PERF_PROFILE_COUNT
+} ov_perf_profile_id_t;
+
+const char* ov_perf_profile_to_string(ov_perf_profile_id_t profile);
+
+/* Safe Deployment Pipeline Steps & States */
+typedef enum {
+    OV_DEPLOY_STEP_DISCOVER = 0,
+    OV_DEPLOY_STEP_SIMULATE = 1,
+    OV_DEPLOY_STEP_PLAN = 2,
+    OV_DEPLOY_STEP_SHOW_CHANGES = 3,
+    OV_DEPLOY_STEP_USER_APPROVAL = 4,
+    OV_DEPLOY_STEP_BACKUP = 5,
+    OV_DEPLOY_STEP_APPLY = 6,
+    OV_DEPLOY_STEP_VERIFY = 7,
+    OV_DEPLOY_STEP_RECOVERY = 8,
+    OV_DEPLOY_STEP_COMPLETE = 9
+} ov_deploy_step_t;
+
+const char* ov_deploy_step_to_string(ov_deploy_step_t step);
+
+typedef enum {
+    OV_DEPLOY_STATE_IDLE = 0,
+    OV_DEPLOY_STATE_PLAN_READY = 1,
+    OV_DEPLOY_STATE_AWAITING_APPROVAL = 2,
+    OV_DEPLOY_STATE_BACKED_UP = 3,
+    OV_DEPLOY_STATE_APPLIED = 4,
+    OV_DEPLOY_STATE_VERIFIED = 5,
+    OV_DEPLOY_STATE_ROLLED_BACK = 6,
+    OV_DEPLOY_STATE_FAILED = 7
+} ov_deploy_state_t;
+
+const char* ov_deploy_state_to_string(ov_deploy_state_t state);
+
+/* Boot Picker Target Types */
+typedef enum {
+    OV_BOOT_TARGET_MACOS = 0,
+    OV_BOOT_TARGET_MACOS_RECOVERY = 1,
+    OV_BOOT_TARGET_OPENCORE = 2,
+    OV_BOOT_TARGET_LINUX = 3,
+    OV_BOOT_TARGET_WINDOWS = 4,
+    OV_BOOT_TARGET_EFI_APP = 5,
+    OV_BOOT_TARGET_UNKNOWN = 6
+} ov_boot_target_type_t;
+
+const char* ov_boot_target_type_to_string(ov_boot_target_type_t target);
+
+/* External Boot Integrations */
+typedef enum {
+    OV_INTEGRATION_OPENVINTAGE = 0,
+    OV_INTEGRATION_OCLP = 1,
+    OV_INTEGRATION_REFIND = 2
+} ov_integration_type_t;
+
+const char* ov_integration_type_to_string(ov_integration_type_t integ);
 
 #endif /* OV_TYPES_H */

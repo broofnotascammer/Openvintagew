@@ -45,6 +45,12 @@ COMMON_SRCS = $(SRC_DIR)/ov_types.c \
               $(SRC_DIR)/ov_diagnostics.c \
               $(SRC_DIR)/ov_core.c \
               $(SRC_DIR)/ov_ui.c \
+              $(SRC_DIR)/ov_security.c \
+              $(SRC_DIR)/ov_perf_profile.c \
+              $(SRC_DIR)/ov_boot_picker.c \
+              $(SRC_DIR)/ov_deployment.c \
+              $(SRC_DIR)/ov_oclp_adapter.c \
+              $(SRC_DIR)/ov_refind_adapter.c \
               $(PLATFORM_DIR)/common/ov_platform.c \
               $(PLATFORM_DIR)/linux/ov_hardware_linux.c \
               $(PLATFORM_DIR)/macos/ov_hardware_macos.c
@@ -68,6 +74,12 @@ OBJS = $(BUILD_DIR)/main.o \
        $(BUILD_DIR)/ov_diagnostics.o \
        $(BUILD_DIR)/ov_core.o \
        $(BUILD_DIR)/ov_ui.o \
+       $(BUILD_DIR)/ov_security.o \
+       $(BUILD_DIR)/ov_perf_profile.o \
+       $(BUILD_DIR)/ov_boot_picker.o \
+       $(BUILD_DIR)/ov_deployment.o \
+       $(BUILD_DIR)/ov_oclp_adapter.o \
+       $(BUILD_DIR)/ov_refind_adapter.o \
        $(BUILD_DIR)/platform/common/ov_platform.o \
        $(BUILD_DIR)/platform/linux/ov_hardware_linux.o \
        $(BUILD_DIR)/platform/macos/ov_hardware_macos.o

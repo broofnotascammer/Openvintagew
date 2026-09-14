@@ -16,6 +16,8 @@ const char* ov_status_to_string(ov_status_t status) {
         case OV_ERROR_OUT_OF_RESOURCES:     return "OV_ERROR_OUT_OF_RESOURCES";
         case OV_ERROR_UNSUPPORTED:          return "OV_ERROR_UNSUPPORTED";
         case OV_ERROR_INTEGRITY:            return "OV_ERROR_INTEGRITY";
+        case OV_ERROR_PERMISSION_DENIED:    return "OV_ERROR_PERMISSION_DENIED";
+        case OV_ERROR_GENERIC:              return "OV_ERROR_GENERIC";
         default:                            return "OV_ERROR_UNKNOWN";
     }
 }
@@ -114,3 +116,82 @@ const char* ov_macos_compat_rating_to_string(ov_macos_compat_rating_t rating) {
         default:                              return "UNKNOWN RATING";
     }
 }
+
+const char* ov_compat_category_to_string(ov_compat_category_t cat) {
+    switch (cat) {
+        case OV_COMPAT_CAT_NATIVELY_SUPPORTED:     return "Natively Supported";
+        case OV_COMPAT_CAT_SUPPORTED_WITH_CONFIG:  return "Supported with Configuration";
+        case OV_COMPAT_CAT_SUPPORTED_WITH_OCLP:    return "Supported with OCLP";
+        case OV_COMPAT_CAT_SUPPORTED_WITH_OPENCORE:return "Supported with OpenCore";
+        case OV_COMPAT_CAT_SUPPORTED_WITH_REFIND:  return "Supported with rEFInd";
+        case OV_COMPAT_CAT_EXPERIMENTAL:           return "Experimental";
+        case OV_COMPAT_CAT_UNSUPPORTED:            return "Unsupported";
+        case OV_COMPAT_CAT_SIMULATED_ONLY:         return "Simulated Only";
+        default:                                   return "Unknown Category";
+    }
+}
+
+const char* ov_perf_profile_to_string(ov_perf_profile_id_t profile) {
+    switch (profile) {
+        case OV_PERF_PROFILE_MAX_PERFORMANCE:    return "Maximum Performance";
+        case OV_PERF_PROFILE_GAMING:             return "Gaming";
+        case OV_PERF_PROFILE_BALANCED:           return "Balanced";
+        case OV_PERF_PROFILE_BATTERY_EFFICIENCY: return "Battery / Efficiency";
+        case OV_PERF_PROFILE_COMPATIBILITY:      return "Compatibility";
+        case OV_PERF_PROFILE_CUSTOM:             return "Custom";
+        default:                                 return "Unknown Profile";
+    }
+}
+
+const char* ov_deploy_step_to_string(ov_deploy_step_t step) {
+    switch (step) {
+        case OV_DEPLOY_STEP_DISCOVER:      return "DISCOVER";
+        case OV_DEPLOY_STEP_SIMULATE:      return "SIMULATE";
+        case OV_DEPLOY_STEP_PLAN:          return "PLAN";
+        case OV_DEPLOY_STEP_SHOW_CHANGES:  return "SHOW CHANGES";
+        case OV_DEPLOY_STEP_USER_APPROVAL: return "USER APPROVAL";
+        case OV_DEPLOY_STEP_BACKUP:        return "BACKUP";
+        case OV_DEPLOY_STEP_APPLY:         return "APPLY";
+        case OV_DEPLOY_STEP_VERIFY:        return "VERIFY";
+        case OV_DEPLOY_STEP_RECOVERY:      return "RECOVERY IF NEEDED";
+        case OV_DEPLOY_STEP_COMPLETE:      return "COMPLETE";
+        default:                           return "UNKNOWN STEP";
+    }
+}
+
+const char* ov_deploy_state_to_string(ov_deploy_state_t state) {
+    switch (state) {
+        case OV_DEPLOY_STATE_IDLE:              return "Idle";
+        case OV_DEPLOY_STATE_PLAN_READY:        return "Plan Ready";
+        case OV_DEPLOY_STATE_AWAITING_APPROVAL: return "Awaiting User Approval";
+        case OV_DEPLOY_STATE_BACKED_UP:         return "Backup Created";
+        case OV_DEPLOY_STATE_APPLIED:           return "Changes Applied";
+        case OV_DEPLOY_STATE_VERIFIED:          return "Verified";
+        case OV_DEPLOY_STATE_ROLLED_BACK:       return "Rolled Back";
+        case OV_DEPLOY_STATE_FAILED:            return "Failed";
+        default:                                return "Unknown State";
+    }
+}
+
+const char* ov_boot_target_type_to_string(ov_boot_target_type_t target) {
+    switch (target) {
+        case OV_BOOT_TARGET_MACOS:          return "macOS";
+        case OV_BOOT_TARGET_MACOS_RECOVERY: return "macOS Recovery";
+        case OV_BOOT_TARGET_OPENCORE:       return "OpenCore";
+        case OV_BOOT_TARGET_LINUX:          return "Linux";
+        case OV_BOOT_TARGET_WINDOWS:        return "Windows";
+        case OV_BOOT_TARGET_EFI_APP:        return "EFI Application";
+        case OV_BOOT_TARGET_UNKNOWN:
+        default:                            return "Unknown Target";
+    }
+}
+
+const char* ov_integration_type_to_string(ov_integration_type_t integ) {
+    switch (integ) {
+        case OV_INTEGRATION_OPENVINTAGE: return "OpenVintage";
+        case OV_INTEGRATION_OCLP:        return "OpenCore Legacy Patcher (OCLP)";
+        case OV_INTEGRATION_REFIND:      return "rEFInd Boot Manager";
+        default:                         return "Unknown Integration";
+    }
+}
+
