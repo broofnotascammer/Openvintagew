@@ -28,7 +28,6 @@ struct ContentView: View {
                 Divider()
                 detail
             }
-            .background(Color.clear)
         }
         .onAppear { hardware.refresh() }
     }
@@ -91,7 +90,6 @@ struct ContentView: View {
                 Button(action: hardware.refresh) {
                     Label("Refresh", systemImage: "arrow.clockwise")
                 }
-                .buttonStyle(.bordered)
             }
             .padding(.horizontal, 28)
             .padding(.top, 25)
@@ -131,9 +129,11 @@ struct ContentView: View {
                 }
             }
 
-            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 16) {
+            HStack(spacing: 16) {
                 InfoCard(title: "CPU", value: hardware.cpu, icon: "cpu")
                 InfoCard(title: "Memory", value: hardware.memory, icon: "memorychip")
+            }
+            HStack(spacing: 16) {
                 InfoCard(title: "Darwin", value: hardware.darwin, icon: "apple.logo")
                 InfoCard(title: "Kernel", value: hardware.kernel, icon: "terminal")
             }
