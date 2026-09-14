@@ -26,7 +26,7 @@ final class NativeHardwareModel: ObservableObject {
 
         gpus = detectGPUs()
         if gpus.isEmpty {
-            gpus = ["No PCI graphics devices reported by IOKit"]
+            gpus = ["No PCI display-class devices reported by IOKit"]
         }
     }
 
@@ -61,13 +61,7 @@ final class NativeHardwareModel: ObservableObject {
                 continue
             }
 
-            var isDisplay = false
-            if let number = classValue as? NSNumber {
-                isDisplay = (number.uint32Value >> 8) == 0x03
-            } else if let data = classValue as? Data, data.count >= 3 {
-                isDisplay = data[data.startIndex.advanced(by: 2)] == 0x03
-            }
-            if !isDisplay { continue }
+            guard let classCode = pciClassCode(classValue), classCode == 0x03 else { continue }
 
             let vendor = registryNumber(service, key: "vendor-id")
             let device = registryNumber(service, key: "device-id")
@@ -87,6 +81,17 @@ final class NativeHardwareModel: ObservableObject {
             unique.append(item)
         }
         return unique
+    }
+
+    private func pciClassCode(_ value: Any) -> UInt32? {
+        if let number = value as? NSNumber {
+            return (number.uint32Value >> 16) & 0xff
+        }
+        if let data = value as? Data, data.count >= 3 {
+            // IOKit commonly exposes the PCI class code as big-endian bytes.
+            return UInt32(data[data.startIndex])
+        }
+        return nil
     }
 
     private func registryNumber(_ service: io_service_t, key: String) -> UInt32? {
