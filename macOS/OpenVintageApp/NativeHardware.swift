@@ -1,6 +1,7 @@
 import Foundation
+import SwiftUI
+import Combine
 import IOKit
-import IOKit.graphics
 import Darwin
 
 final class NativeHardwareModel: ObservableObject {
@@ -47,7 +48,7 @@ final class NativeHardwareModel: ObservableObject {
     private func detectGPUs() -> [String] {
         guard let matching = IOServiceMatching("IOPCIDevice") else { return [] }
         var iterator: io_iterator_t = 0
-        guard IOServiceGetMatchingServices(kIOMainPortDefault, matching, &iterator) == KERN_SUCCESS else { return [] }
+        guard IOServiceGetMatchingServices(kIOMasterPortDefault, matching, &iterator) == KERN_SUCCESS else { return [] }
         defer { IOObjectRelease(iterator) }
 
         var result: [String] = []
@@ -56,33 +57,37 @@ final class NativeHardwareModel: ObservableObject {
             if service == 0 { break }
             defer { IOObjectRelease(service) }
 
-            guard let className = IORegistryEntryCreateCFProperty(service, "class-code" as CFString, kCFAllocatorDefault, 0)?.takeRetainedValue() else {
+            guard let classValue = IORegistryEntryCreateCFProperty(service, "class-code" as CFString, kCFAllocatorDefault, 0)?.takeRetainedValue() else {
                 continue
             }
 
             var isDisplay = false
-            if let number = className as? NSNumber {
+            if let number = classValue as? NSNumber {
                 let classCode = number.uint32Value >> 8
-                isDisplay = (classCode == 0x03 || classCode == 0x00)
-            } else if let data = className as? Data, data.count >= 3 {
+                isDisplay = (classCode == 0x03)
+            } else if let data = classValue as? Data, data.count >= 3 {
                 isDisplay = data[data.startIndex.advanced(by: 2)] == 0x03
             }
             if !isDisplay { continue }
 
             let vendor = registryNumber(service, key: "vendor-id")
             let device = registryNumber(service, key: "device-id")
-            let name = (IORegistryEntryCreateCFProperty(service, "model" as CFString, kCFAllocatorDefault, 0)?.takeRetainedValue() as? String)
+            let modelName = (IORegistryEntryCreateCFProperty(service, "model" as CFString, kCFAllocatorDefault, 0)?.takeRetainedValue() as? String)
                 ?? (IORegistryEntryCreateCFProperty(service, "compatible" as CFString, kCFAllocatorDefault, 0)?.takeRetainedValue() as? [String])?.first
                 ?? "PCI graphics device"
 
             if let vendor, let device {
-                result.append("\(name)  [PCI \(String(format: "%04X", vendor)):\(String(format: "%04X", device))]")
+                result.append("\(modelName)  [PCI \(String(format: "%04X", vendor)):\(String(format: "%04X", device))]")
             } else {
-                result.append(name)
+                result.append(modelName)
             }
         }
 
-        return Array(NSOrderedSet(array: result)) as? [String] ?? result
+        var unique: [String] = []
+        for item in result where !unique.contains(item) {
+            unique.append(item)
+        }
+        return unique
     }
 
     private func registryNumber(_ service: io_service_t, key: String) -> UInt32? {
@@ -90,7 +95,7 @@ final class NativeHardwareModel: ObservableObject {
         if let number = value as? NSNumber { return number.uint32Value }
         if let data = value as? Data, data.count >= 4 {
             return data.withUnsafeBytes { raw in
-                raw.load(as: UInt32.self).bigEndian
+                raw.loadUnaligned(as: UInt32.self).bigEndian
             }
         }
         return nil
