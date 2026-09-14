@@ -12,6 +12,9 @@ LDFLAGS_BASE = -lpthread -lm $(MACOS_FRAMEWORKS)
 BIN_DIR = ../../bin
 BUILD_DIR = ../../build/macos
 
+# Keep the simulator source manifest explicit. ov_resolver.c consumes the
+# performance-profile API, so ov_perf_profile.c must be linked into every
+# native simulator target.
 SRCS = ../../src/ov_types.c \
        ../../src/ov_logger.c \
        ../../src/ov_memory.c \
@@ -27,6 +30,7 @@ SRCS = ../../src/ov_types.c \
        ../../src/ov_diagnostics.c \
        ../../src/ov_core.c \
        ../../src/ov_ui.c \
+       ../../src/ov_perf_profile.c \
        ../common/ov_platform.c \
        ov_hardware_macos.c \
        ../../src/main.c
