@@ -108,6 +108,11 @@ jobs:
             src/ov_core.c \
             src/ov_ui.c \
             src/ov_perf_profile.c \
+            src/ov_boot_picker.c \
+            src/ov_deployment.c \
+            src/ov_oclp_adapter.c \
+            src/ov_refind_adapter.c \
+            src/ov_security.c \
             platform/common/ov_platform.c \
             platform/macos/ov_hardware_macos.c \
             -target x86_64-apple-macos10.15 \
