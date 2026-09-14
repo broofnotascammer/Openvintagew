@@ -16,6 +16,7 @@ COMMON_FLAGS=(
   -framework AppKit
   -framework IOKit
   -framework CoreFoundation
+  "$APP_DIR/AppDelegate.swift"
   "$APP_DIR/AppMain.swift"
   "$APP_DIR/VisualEffectView.swift"
   "$APP_DIR/NativeHardware.swift"
