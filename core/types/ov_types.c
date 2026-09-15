@@ -16,7 +16,19 @@ const char* ov_status_to_string(ov_status_t status) {
         case OV_ERROR_OUT_OF_RESOURCES:     return "OV_ERROR_OUT_OF_RESOURCES";
         case OV_ERROR_UNSUPPORTED:          return "OV_ERROR_UNSUPPORTED";
         case OV_ERROR_INTEGRITY:            return "OV_ERROR_INTEGRITY";
+        case OV_ERROR_PERMISSION_DENIED:    return "OV_ERROR_PERMISSION_DENIED";
+        case OV_ERROR_GENERIC:              return "OV_ERROR_GENERIC";
         default:                            return "OV_ERROR_UNKNOWN";
+    }
+}
+
+const char* ov_release_channel_to_string(ov_release_channel_t channel) {
+    switch (channel) {
+        case OV_CHANNEL_DEVELOPMENT: return "DEVELOPMENT";
+        case OV_CHANNEL_CANARY:      return "CANARY";
+        case OV_CHANNEL_BETA:        return "BETA";
+        case OV_CHANNEL_STABLE:      return "STABLE";
+        default:                     return "UNKNOWN";
     }
 }
 

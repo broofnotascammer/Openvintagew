@@ -22,6 +22,16 @@ const char* ov_status_to_string(ov_status_t status) {
     }
 }
 
+const char* ov_release_channel_to_string(ov_release_channel_t channel) {
+    switch (channel) {
+        case OV_CHANNEL_DEVELOPMENT: return "DEVELOPMENT";
+        case OV_CHANNEL_CANARY:      return "CANARY";
+        case OV_CHANNEL_BETA:        return "BETA";
+        case OV_CHANNEL_STABLE:      return "STABLE";
+        default:                     return "UNKNOWN";
+    }
+}
+
 const char* ov_hw_mode_to_string(ov_hw_mode_t mode) {
     switch (mode) {
         case OV_HW_MODE_NATIVE:    return "NATIVE";

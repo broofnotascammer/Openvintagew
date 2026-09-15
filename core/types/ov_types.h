@@ -11,6 +11,23 @@
 #include <stddef.h>
 #include <string.h>
 
+/* OpenVintage Phase 7 Architecture Versioning */
+#define OPENVINTAGE_VERSION_MAJOR 7
+#define OPENVINTAGE_VERSION_MINOR 0
+#define OPENVINTAGE_VERSION_PATCH 0
+#define OPENVINTAGE_VERSION_STRING "7.0.0"
+#define OPENVINTAGE_BUILD_ID "OV7-RELEASE-PROD"
+
+/* Release Channels */
+typedef enum {
+    OV_CHANNEL_DEVELOPMENT = 0,
+    OV_CHANNEL_CANARY      = 1,
+    OV_CHANNEL_BETA        = 2,
+    OV_CHANNEL_STABLE      = 3
+} ov_release_channel_t;
+
+const char* ov_release_channel_to_string(ov_release_channel_t channel);
+
 /* OpenVintage Standard Status Codes */
 typedef enum {
     OV_SUCCESS = 0,
@@ -22,7 +39,9 @@ typedef enum {
     OV_ERROR_NOT_FOUND = 6,
     OV_ERROR_OUT_OF_RESOURCES = 7,
     OV_ERROR_UNSUPPORTED = 8,
-    OV_ERROR_INTEGRITY = 9
+    OV_ERROR_INTEGRITY = 9,
+    OV_ERROR_PERMISSION_DENIED = 10,
+    OV_ERROR_GENERIC = 11
 } ov_status_t;
 
 const char* ov_status_to_string(ov_status_t status);

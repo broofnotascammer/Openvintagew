@@ -259,7 +259,10 @@ ov_status_t ov_macos_iokit_probe_gpus(ov_gpu_topology_t *out_topo) {
 }
 
 ov_status_t ov_macos_detect_host(ov_hardware_profile_t *out_host) {
-    if(!out_host)return OV_ERROR_INVALID_PARAM; memset(out_host,0,sizeof(*out_host));
+    if (!out_host) {
+        return OV_ERROR_INVALID_PARAM;
+    }
+    memset(out_host, 0, sizeof(*out_host));
 #if defined(__APPLE__)
     out_host->profile_id=OV_HW_PROFILE_HOST;out_host->source=OV_HW_SOURCE_NATIVE;out_host->is_simulated=false;out_host->is_mac_host=true;
     char model[64]={0}; if(ov_macos_sysctl_string("hw.model",model,sizeof(model))==0&&model[0]){snprintf(out_host->model_identifier,sizeof(out_host->model_identifier),"%s",model);snprintf(out_host->profile_name,sizeof(out_host->profile_name),"%s",model);snprintf(out_host->marketing_name,sizeof(out_host->marketing_name),"Apple %s",model);}else snprintf(out_host->model_identifier,sizeof(out_host->model_identifier),"Mac-Host");

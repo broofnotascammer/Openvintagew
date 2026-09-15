@@ -25,6 +25,7 @@
 #include "ov_deployment.h"
 #include "ov_oclp_adapter.h"
 #include "ov_refind_adapter.h"
+#include "ov_app_api.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -1066,6 +1067,273 @@ static void test_phase6_resolver_pipeline(void) {
     ov_hardware_cleanup();
 }
 
+static void test_phase7_unified_app_api_and_safety(void) {
+    printf(">>> [TEST SUITE] 20. Phase 7 Unified App API & Safety Controls\n");
+
+    ov_status_t st = ov_app_init();
+    TEST_ASSERT(st == OV_SUCCESS, "ov_app_init succeeds");
+
+    /* Version and build metadata */
+    ov_app_status_summary_t sum;
+    st = ov_app_get_status_summary(&sum);
+    TEST_ASSERT(st == OV_SUCCESS, "ov_app_get_status_summary succeeds");
+    TEST_ASSERT(strcmp(sum.app_version, OPENVINTAGE_VERSION_STRING) == 0, "Summary version matches 7.0.0");
+    TEST_ASSERT(sum.release_channel == OV_CHANNEL_STABLE, "Default release channel is STABLE");
+    TEST_ASSERT(!sum.developer_mode, "Developer mode disabled by default");
+    TEST_ASSERT(!sum.physical_test_mode, "Physical test mode disabled by default");
+
+    /* Channel selection */
+    st = ov_app_set_release_channel(OV_CHANNEL_CANARY);
+    TEST_ASSERT(st == OV_SUCCESS, "Setting CANARY release channel succeeds");
+    TEST_ASSERT(ov_app_get_release_channel() == OV_CHANNEL_CANARY, "Active release channel is CANARY");
+
+    /* Safety Gating for Physical Test Mode */
+    st = ov_app_enable_physical_test_mode(true);
+    TEST_ASSERT(st == OV_ERROR_PERMISSION_DENIED, "Physical test mode blocked when developer mode is OFF");
+    TEST_ASSERT(!ov_app_is_physical_test_mode(), "Physical test mode remains false");
+
+    st = ov_app_set_developer_mode(true);
+    TEST_ASSERT(st == OV_SUCCESS, "Enable developer mode succeeds");
+    TEST_ASSERT(ov_app_get_developer_mode() == true, "Developer mode confirmed ON");
+
+    st = ov_app_enable_physical_test_mode(false);
+    TEST_ASSERT(st == OV_ERROR_PERMISSION_DENIED, "Physical test mode blocked without explicit confirmation");
+
+    st = ov_app_enable_physical_test_mode(true);
+    TEST_ASSERT(st == OV_SUCCESS, "Physical test mode enabled with developer mode ON and user confirmation");
+    TEST_ASSERT(ov_app_is_physical_test_mode() == true, "Physical test mode confirmed active");
+
+    /* Disabling developer mode automatically revokes physical test mode */
+    ov_app_set_developer_mode(false);
+    TEST_ASSERT(!ov_app_is_physical_test_mode(), "Disabling developer mode revokes physical test mode");
+
+    /* Hardware Profile & GPU Topology via App API */
+    st = ov_app_load_simulated_profile("MacBookPro9,1");
+    TEST_ASSERT(st == OV_SUCCESS, "Load simulated profile MacBookPro9,1 succeeds");
+
+    const ov_hardware_profile_t *hw = ov_app_get_active_hardware_profile();
+    TEST_ASSERT(hw != NULL, "Active profile is non-null");
+    TEST_ASSERT(strcmp(hw->model_identifier, "MacBookPro9,1") == 0, "Active profile is MBP9,1");
+
+    st = ov_app_get_status_summary(&sum);
+    TEST_ASSERT(sum.gpu_count == 2, "MBP9,1 exposes 2 physical GPUs");
+    TEST_ASSERT(sum.gmux_present == true, "MBP9,1 exposes GMUX multiplexer");
+
+    /* Switch active GPU */
+    st = ov_app_switch_active_gpu(1);
+    TEST_ASSERT(st == OV_SUCCESS, "Switch to discrete GPU (index 1) succeeds");
+    st = ov_app_get_status_summary(&sum);
+    TEST_ASSERT(sum.active_gpu_index == 1, "Active GPU index is 1");
+    TEST_ASSERT(sum.gpu_count == 2, "Physical GPU inventory invariant (still 2 GPUs)");
+
+    /* Integrations status */
+    bool oc_det = false, refind_det = false;
+    char strat[256];
+    st = ov_app_get_integrations_status(&oc_det, &refind_det, strat, sizeof(strat));
+    TEST_ASSERT(st == OV_SUCCESS, "Query integrations status succeeds");
+    TEST_ASSERT(strlen(strat) > 0, "Recommended integration strategy populated");
+
+    /* Staged Deployment Wizard Steps */
+    char step_msg[256];
+    st = ov_app_deployment_execute_step(1, false, step_msg, sizeof(step_msg));
+    TEST_ASSERT(st == OV_SUCCESS, "Wizard Step 1 Discover succeeds");
+
+    st = ov_app_deployment_execute_step(3, false, step_msg, sizeof(step_msg));
+    TEST_ASSERT(st == OV_SUCCESS, "Wizard Step 3 Simulation succeeds");
+
+    st = ov_app_deployment_execute_step(6, false, step_msg, sizeof(step_msg));
+    TEST_ASSERT(st == OV_ERROR_PERMISSION_DENIED, "Wizard Step 6 blocks when user_confirmed is false");
+
+    st = ov_app_deployment_execute_step(6, true, step_msg, sizeof(step_msg));
+    TEST_ASSERT(st == OV_SUCCESS, "Wizard Step 6 succeeds when user_confirmed is true");
+
+    st = ov_app_deployment_execute_step(7, true, step_msg, sizeof(step_msg));
+    TEST_ASSERT(st == OV_SUCCESS, "Wizard Step 7 Backup succeeds");
+
+    /* Emergency Recovery Tool Export */
+    char rec_path[512];
+    st = ov_app_export_recovery_package("/tmp", rec_path, sizeof(rec_path));
+    TEST_ASSERT(st == OV_SUCCESS, "Emergency recovery tool export succeeds");
+    TEST_ASSERT(strstr(rec_path, "OpenVintage_Recovery_Tool.sh") != NULL, "Recovery tool path generated");
+
+    /* Diagnostics Export */
+    st = ov_app_export_diagnostics(0, "/tmp/ov_phase7_diag.txt");
+    TEST_ASSERT(st == OV_SUCCESS, "Export Phase 7 text diagnostics succeeds");
+    st = ov_app_export_diagnostics(1, "/tmp/ov_phase7_diag.json");
+    TEST_ASSERT(st == OV_SUCCESS, "Export Phase 7 json diagnostics succeeds");
+
+    ov_app_cleanup();
+}
+
+/* 21. Phase 8: Safe Real-Hardware EFI Installer + Verified Backup/Restore */
+static void test_phase8_physical_efi_installer_and_backup_restore(void) {
+    printf(">>> [TEST SUITE] 21. Phase 8 Real-Hardware EFI Installer & Verified Backup/Restore\n");
+
+    ov_status_t st = ov_app_init();
+    TEST_ASSERT(st == OV_SUCCESS, "Phase 8: ov_app_init succeeds");
+
+    /* 1. Storage Detection & Device Distinction */
+    ov_efi_storage_inventory_t inv;
+    st = ov_app_installer_detect_storage(&inv);
+    TEST_ASSERT(st == OV_SUCCESS, "Storage detection succeeds");
+    TEST_ASSERT(inv.device_count == 2, "Detects internal ESP and removable USB");
+    TEST_ASSERT(inv.internal_esp_index >= 0, "Internal ESP index is valid");
+    TEST_ASSERT(inv.selected_usb_index >= 0, "Removable USB index is valid");
+
+    const ov_efi_storage_target_t *esp = &inv.devices[inv.internal_esp_index];
+    const ov_efi_storage_target_t *usb = &inv.devices[inv.selected_usb_index];
+
+    TEST_ASSERT(esp->is_internal_esp == true, "Device 0 is internal ESP");
+    TEST_ASSERT(esp->is_removable == false, "Internal ESP is not removable");
+    TEST_ASSERT(strcmp(esp->mount_point, "/Volumes/EFI") == 0, "ESP mount point is /Volumes/EFI");
+
+    TEST_ASSERT(usb->is_internal_esp == false, "Device 1 is not internal ESP");
+    TEST_ASSERT(usb->is_removable == true, "Device 1 is confirmed removable USB flash drive");
+    TEST_ASSERT(strcmp(usb->mount_point, "/Volumes/OV_USB_RECOVERY") == 0, "USB mount point is /Volumes/OV_USB_RECOVERY");
+
+    /* Distinction test: Attempting to select internal ESP as USB recovery must be rejected */
+    st = ov_app_installer_select_usb(inv.internal_esp_index, true);
+    TEST_ASSERT(st == OV_ERROR_INVALID_PARAM, "Selecting internal ESP as USB recovery is strictly rejected");
+
+    /* Confirm legitimate USB device */
+    st = ov_app_installer_select_usb(inv.selected_usb_index, true);
+    TEST_ASSERT(st == OV_SUCCESS, "Selecting valid removable USB succeeds");
+
+    /* Confirm ESP */
+    st = ov_app_installer_confirm_esp(inv.internal_esp_index, true);
+    TEST_ASSERT(st == OV_SUCCESS, "Confirming internal ESP succeeds");
+
+    /* 2. EFI Release Artifact Inspection & Firmware Exclusion */
+    ov_efi_artifact_t artifacts[8];
+    uint32_t art_count = 0;
+    st = ov_app_installer_audit_artifacts(artifacts, &art_count, 8);
+    TEST_ASSERT(st == OV_SUCCESS, "Audit artifacts succeeds");
+    TEST_ASSERT(art_count == 5, "Discovers exactly 5 artifacts in repository");
+
+    /* Verify BootApp is required */
+    TEST_ASSERT(strcmp(artifacts[0].filename, "OpenVintageBootApp.efi") == 0, "Artifact 0 is OpenVintageBootApp.efi");
+    TEST_ASSERT(artifacts[0].is_required_for_physical_install == true, "BootApp is required for physical boot execution");
+    TEST_ASSERT(strcmp(artifacts[0].target_esp_path, "EFI/OpenVintage/OpenVintageBootApp.efi") == 0, "BootApp targets EFI/OpenVintage/");
+
+    /* Verify HalDxe is required */
+    TEST_ASSERT(strcmp(artifacts[1].filename, "OpenVintageHalDxe.efi") == 0, "Artifact 1 is OpenVintageHalDxe.efi");
+    TEST_ASSERT(artifacts[1].is_required_for_physical_install == true, "HalDxe is required for pre-boot HAL and inspection");
+    TEST_ASSERT(strcmp(artifacts[1].target_esp_path, "EFI/OpenVintage/OpenVintageHalDxe.efi") == 0, "HalDxe targets EFI/OpenVintage/");
+
+    /* Verify config.plist is required */
+    TEST_ASSERT(strcmp(artifacts[2].filename, "config.plist") == 0, "Artifact 2 is config.plist");
+    TEST_ASSERT(artifacts[2].is_required_for_physical_install == true, "config.plist is required");
+
+    /* Verify OvSelfTestApp.efi is EXCLUDED */
+    TEST_ASSERT(strcmp(artifacts[3].filename, "OvSelfTestApp.efi") == 0, "Artifact 3 is OvSelfTestApp.efi");
+    TEST_ASSERT(artifacts[3].is_required_for_physical_install == false, "OvSelfTestApp.efi is EXCLUDED from physical install");
+
+    /* Verify OPENVINTAGE.fd is FORBIDDEN and REJECTED */
+    TEST_ASSERT(strcmp(artifacts[4].filename, "OPENVINTAGE.fd") == 0, "Artifact 4 is OPENVINTAGE.fd");
+    TEST_ASSERT(artifacts[4].is_required_for_physical_install == false, "OPENVINTAGE.fd is NOT an install artifact");
+    TEST_ASSERT(artifacts[4].is_rejected_forbidden == true, "OPENVINTAGE.fd is strictly flagged as forbidden firmware");
+
+    /* Test Payload Safety Validator directly */
+    st = ov_efi_installer_validate_payload_safety("OpenVintagePkg/Firmware/OPENVINTAGE.fd");
+    TEST_ASSERT(st == OV_ERROR_PERMISSION_DENIED, "Payload safety validator blocks OPENVINTAGE.fd");
+
+    st = ov_efi_installer_validate_payload_safety("SPI_Flash_ROM.bin");
+    TEST_ASSERT(st == OV_ERROR_PERMISSION_DENIED, "Payload safety validator blocks SPI ROM flash images");
+
+    st = ov_efi_installer_validate_payload_safety("OpenVintagePkg/Tests/OvSelfTestApp.efi");
+    TEST_ASSERT(st == OV_ERROR_PERMISSION_DENIED, "Payload safety validator blocks test harness");
+
+    st = ov_efi_installer_validate_payload_safety("OpenVintagePkg/OpenVintageBootApp/OpenVintageBootApp.efi");
+    TEST_ASSERT(st == OV_SUCCESS, "Payload safety validator accepts OpenVintageBootApp.efi");
+
+    /* 3. USB Recovery Package Creation */
+    ov_recovery_package_t pkg;
+    st = ov_app_installer_create_backup("/Volumes/OV_USB_RECOVERY", &pkg);
+    TEST_ASSERT(st == OV_SUCCESS, "Creating USB recovery package succeeds");
+    TEST_ASSERT(pkg.item_count == 3, "Recovery package backs up 3 existing files");
+    TEST_ASSERT(pkg.manifest_generated == true, "Recovery manifest.json generated");
+    TEST_ASSERT(pkg.checksums_written == true, "CHECKSUMS-SHA256.txt written");
+    TEST_ASSERT(pkg.is_recovery_verified == false, "Recovery package not yet marked verified");
+
+    /* 4. Recovery Backup Verification (Tamper Detection) */
+    st = ov_app_installer_verify_backup(true /* simulate tamper */);
+    TEST_ASSERT(st == OV_ERROR_INTEGRITY, "Verification detects tampered/corrupted backup item");
+    const ov_recovery_package_t *curr_pkg = ov_efi_installer_get_recovery_package();
+    TEST_ASSERT(curr_pkg->is_recovery_verified == false, "Package remains UNVERIFIED on error");
+
+    /* Legitimate verification */
+    st = ov_app_installer_verify_backup(false /* clean */);
+    TEST_ASSERT(st == OV_SUCCESS, "Clean verification succeeds for all files on USB");
+    curr_pkg = ov_efi_installer_get_recovery_package();
+    TEST_ASSERT(curr_pkg->is_recovery_verified == true, "Package marked VERIFIED after all SHA-256 checks pass");
+
+    /* 5. Dry Run Generation */
+    ov_efi_dry_run_t dry_run;
+    st = ov_app_installer_generate_dry_run(&dry_run);
+    TEST_ASSERT(st == OV_SUCCESS, "Generate dry run succeeds");
+    TEST_ASSERT(strstr(dry_run.firmware_modification_status, "NONE") != NULL, "Dry run confirms firmware NOT modified");
+    TEST_ASSERT(strstr(dry_run.rom_modification_status, "NONE") != NULL, "Dry run confirms ROM NOT modified");
+    TEST_ASSERT(strstr(dry_run.files_to_install, "OpenVintageBootApp.efi") != NULL, "Dry run lists OpenVintageBootApp.efi");
+    TEST_ASSERT(strstr(dry_run.files_to_install, "OpenVintageHalDxe.efi") != NULL, "Dry run lists OpenVintageHalDxe.efi");
+    TEST_ASSERT(strstr(dry_run.files_to_preserve, "EFI/APPLE/*") != NULL, "Dry run confirms EFI/APPLE preserved");
+
+    /* 6. Strict 17 Safety Gates Check */
+    ov_efi_safety_gates_t gates;
+    bool all_pass = false;
+
+    /* When developer mode and physical test mode are off, install must be blocked */
+    st = ov_app_installer_check_safety_gates(&gates, &all_pass);
+    TEST_ASSERT(st == OV_ERROR_PERMISSION_DENIED, "Safety gates fail when developer mode is off");
+    TEST_ASSERT(all_pass == false, "all_pass is false");
+
+    /* Attempting install with safety gates failing must abort */
+    ov_efi_install_report_t inst_rep;
+    st = ov_app_installer_install(true, &inst_rep);
+    TEST_ASSERT(st == OV_ERROR_PERMISSION_DENIED, "Install aborts immediately when safety gates fail");
+
+    /* Enable Developer Mode & Physical Test Mode */
+    st = ov_app_set_developer_mode(true);
+    TEST_ASSERT(st == OV_SUCCESS, "Enable developer mode succeeds");
+    st = ov_app_enable_physical_test_mode(true);
+    TEST_ASSERT(st == OV_SUCCESS, "Enable physical test mode succeeds");
+
+    /* Load MacBookPro9,1 profile */
+    st = ov_app_load_simulated_profile("MacBookPro9,1");
+    TEST_ASSERT(st == OV_SUCCESS, "Load MBP9,1 profile succeeds");
+
+    /* Re-check safety gates */
+    st = ov_app_installer_check_safety_gates(&gates, &all_pass);
+    TEST_ASSERT(st == OV_SUCCESS, "All safety gates pass with complete prerequisites");
+    TEST_ASSERT(all_pass == true, "all_pass is true");
+    TEST_ASSERT(gates.firmware_modification_none == true, "Gate 15: Firmware modification is NONE");
+    TEST_ASSERT(gates.rom_modification_none == true, "Gate 16: ROM modification is NONE");
+
+    /* User confirmation gate check: calling install with user_final_confirmed=false must abort */
+    st = ov_app_installer_install(false, &inst_rep);
+    TEST_ASSERT(st == OV_ERROR_PERMISSION_DENIED, "Install aborts when final user confirmation is omitted");
+
+    /* 7. Executing Verified Physical Installation */
+    st = ov_app_installer_install(true, &inst_rep);
+    TEST_ASSERT(st == OV_SUCCESS, "Verified installation succeeds");
+    TEST_ASSERT(inst_rep.overall_success == true, "Install report confirms overall success");
+    TEST_ASSERT(inst_rep.binaries_exist == true, "OpenVintage EFI binaries exist in ESP");
+    TEST_ASSERT(inst_rep.hashes_match == true, "SHA-256 hashes match payload exactly");
+    TEST_ASSERT(inst_rep.apple_files_intact == true, "Apple system files preserved 100% intact");
+    TEST_ASSERT(inst_rep.existing_bootloaders_intact == true, "Existing bootloaders preserved intact");
+    TEST_ASSERT(inst_rep.zero_rom_touched == true, "Confirmed zero ROM touched");
+
+    /* 8. Full Rollback and Verification of Original State */
+    ov_efi_rollback_report_t roll_rep;
+    st = ov_app_installer_rollback(&roll_rep);
+    TEST_ASSERT(st == OV_SUCCESS, "Rollback succeeds");
+    TEST_ASSERT(roll_rep.rollback_verified == true, "Rollback is fully verified");
+    TEST_ASSERT(roll_rep.openvintage_files_removed == true, "OpenVintage EFI binaries cleanly removed");
+    TEST_ASSERT(roll_rep.original_files_restored == true, "Original files restored from USB backup");
+    TEST_ASSERT(roll_rep.checksums_match_original == true, "Restored state hashes match original checksums");
+
+    ov_app_cleanup();
+}
+
 int main(void) {
     printf("================================================================================\n");
     printf("        OpenVintage Pre-Boot Architecture Simulator - Automated Test Suite     \n");
@@ -1090,6 +1358,8 @@ int main(void) {
     test_phase6_integrations();
     test_phase6_compatibility_os();
     test_phase6_resolver_pipeline();
+    test_phase7_unified_app_api_and_safety();
+    test_phase8_physical_efi_installer_and_backup_restore();
 
     printf("\n================================================================================\n");
     printf("TEST RESULTS: %d Tests Run, %d Passed, %d Failed\n", g_tests_run, g_tests_passed, g_tests_failed);

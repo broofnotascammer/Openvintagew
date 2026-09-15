@@ -1,4 +1,4 @@
-# OpenVintage Phase 6 Rearchitecture - Root Master Makefile
+# OpenVintage Phase 7 Rearchitecture - Root Master Makefile
 
 CC ?= gcc
 CFLAGS ?= -Wall -Wextra -O2 -g \
@@ -8,6 +8,7 @@ CFLAGS ?= -Wall -Wextra -O2 -g \
 	-Icore/configuration \
 	-Icore/boot \
 	-Icore/deployment \
+	-Icore/installer \
 	-Icore/resolver \
 	-Iplatforms/common \
 	-Iplatforms/macos \
@@ -49,6 +50,7 @@ $(CLI_TARGET): app/cli/main_cli.c app/core_api/ov_app_api.c \
                OpenVintagePrebootSimulator/src/ov_perf_profile.c \
                OpenVintagePrebootSimulator/src/ov_boot_picker.c \
                OpenVintagePrebootSimulator/src/ov_deployment.c \
+               OpenVintagePrebootSimulator/src/ov_efi_installer.c \
                OpenVintagePrebootSimulator/src/ov_oclp_adapter.c \
                OpenVintagePrebootSimulator/src/ov_refind_adapter.c \
                OpenVintagePrebootSimulator/platform/common/ov_platform.c \
@@ -60,6 +62,7 @@ $(CLI_TARGET): app/cli/main_cli.c app/core_api/ov_app_api.c \
 	@echo "OpenVintage CLI built successfully: $@"
 
 $(TEST_TARGET): OpenVintagePrebootSimulator/tests/test_runner.c \
+               app/core_api/ov_app_api.c \
                OpenVintagePrebootSimulator/src/ov_types.c \
                OpenVintagePrebootSimulator/src/ov_logger.c \
                OpenVintagePrebootSimulator/src/ov_memory.c \
@@ -79,6 +82,7 @@ $(TEST_TARGET): OpenVintagePrebootSimulator/tests/test_runner.c \
                OpenVintagePrebootSimulator/src/ov_perf_profile.c \
                OpenVintagePrebootSimulator/src/ov_boot_picker.c \
                OpenVintagePrebootSimulator/src/ov_deployment.c \
+               OpenVintagePrebootSimulator/src/ov_efi_installer.c \
                OpenVintagePrebootSimulator/src/ov_oclp_adapter.c \
                OpenVintagePrebootSimulator/src/ov_refind_adapter.c \
                OpenVintagePrebootSimulator/platform/common/ov_platform.c \

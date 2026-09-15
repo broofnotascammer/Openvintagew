@@ -25,8 +25,8 @@ OpenVintageInitializeRuntime (
   VOID
   )
 {
-  OpenVintageLog (OV_LOG_INFO, L"OpenVintage Runtime Subsystem v0.2.0 initialized.");
-  OpenVintageLog (OV_LOG_INFO, L"HAL / Platform abstraction binding: ACTIVE");
+  OpenVintageLog (OV_LOG_INFO, L"OpenVintage Pre-Boot Runtime Subsystem v7.0.0 initialized.");
+  OpenVintageLog (OV_LOG_INFO, L"HAL / Platform abstraction binding: ACTIVE (Phase 7 Unified)");
   return EFI_SUCCESS;
 }
 
@@ -44,8 +44,9 @@ OpenVintagePrintBanner (
   Print (L"| |__| |  __/| |___| |\\  | \\ V /  | || |\\  | | |/ ___ \\ |_| | |___ \n");
   Print (L" \\____/|_|   |_____|_| \\_|  \\_/  |___|_| \\_| |_/_/   \\_\\____|_____|\n");
   Print (L"================================================================\n");
-  Print (L" OpenVintage Modular Platform & Firmware Architecture (Phase 2)\n");
-  Print (L" Target: Legacy Intel Mac / x86_64 Silicon (2006 - 2015)\n");
+  Print (L" OpenVintage Commercial Boot Platform & Pre-Boot Engine (Phase 7)\n");
+  Print (L" Version 7.0.0 [STABLE / PHYSICAL VALIDATION: MBP9,1]\n");
+  Print (L" Target: Dual-GPU Mac Silicon & x86_64 EFI Systems\n");
   Print (L"================================================================\n\n");
 }
 

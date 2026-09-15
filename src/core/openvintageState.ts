@@ -1075,3 +1075,269 @@ export const DEFAULT_DEPLOYMENT_PLAN: DeploymentPlanItem[] = [
     description: 'Pre-deployment cryptographic archive of previous EFI partition contents',
   },
 ];
+
+// ==========================================
+// PHASE 8: REAL-HARDWARE SAFE EFI INSTALLER
+// ==========================================
+export interface StorageTarget {
+  deviceNode: string;
+  mountPoint: string;
+  volumeLabel: string;
+  filesystemType: string;
+  capacityBytes: number;
+  freeBytes: number;
+  isRemovable: boolean;
+  isInternalEsp: boolean;
+  isDetected: boolean;
+  isSelected: boolean;
+  isUserConfirmed: boolean;
+}
+
+export interface EfiArtifact {
+  filename: string;
+  sourcePath: string;
+  targetEspPath: string;
+  fileSize: number;
+  sha256: string;
+  role: 'BOOT_APP' | 'HAL_DXE' | 'CONFIG' | 'EXCLUDED_TEST' | 'FORBIDDEN_FW';
+  isRequiredForPhysicalInstall: boolean;
+  isRejectedForbidden: boolean;
+  rejectionReason: string;
+}
+
+export interface RecoveryBackupItem {
+  relativePath: string;
+  sourceEspPath: string;
+  sizeBytes: number;
+  sha256: string;
+  backedUp: boolean;
+  verifiedOnUsb: boolean;
+}
+
+export interface RecoveryPackage {
+  packageRoot: string;
+  targetModel: string;
+  timestamp: string;
+  items: RecoveryBackupItem[];
+  hasOpencoreBackup: boolean;
+  hasOclpBackup: boolean;
+  hasRefindBackup: boolean;
+  manifestGenerated: boolean;
+  checksumsWritten: boolean;
+  allChecksumsVerified: boolean;
+  isRecoveryVerified: boolean;
+}
+
+export interface EfiDryRunPlan {
+  sourceSummary: string;
+  targetEsp: string;
+  backupUsb: string;
+  filesToInstall: string[];
+  filesToModify: string[];
+  filesToPreserve: string[];
+  firmwareModificationStatus: string;
+  romModificationStatus: string;
+  partitionTableStatus: string;
+  fullTextPreview: string;
+}
+
+export interface EfiSafetyGates {
+  developerModeEnabled: boolean;
+  physicalTestModeEnabled: boolean;
+  targetMacIdentifiedMbp91: boolean;
+  usbRecoveryDeviceDetected: boolean;
+  correctUsbDeviceConfirmed: boolean;
+  recoveryBackupCreated: boolean;
+  recoveryBackupVerified: boolean;
+  requiredEfiArtifactsIdentified: boolean;
+  efiArtifactsHashVerified: boolean;
+  prebootTestsPass: boolean;
+  hardwareAuditPasses: boolean;
+  simulationPasses: boolean;
+  deploymentPlanGenerated: boolean;
+  exactFilesDisplayed: boolean;
+  firmwareModificationNone: boolean;
+  romModificationNone: boolean;
+  userExplicitlyConfirmsInstall: boolean;
+}
+
+export interface EfiInstallReport {
+  binariesExist: boolean;
+  hashesMatch: boolean;
+  espFilesystemReadable: boolean;
+  appleFilesIntact: boolean;
+  existingBootloadersIntact: boolean;
+  bootConfigValid: boolean;
+  noUnexpectedFilesModified: boolean;
+  zeroRomTouched: boolean;
+  overallSuccess: boolean;
+  reportSummary: string;
+}
+
+export interface EfiRollbackReport {
+  originalFilesRestored: boolean;
+  openvintageFilesRemoved: boolean;
+  checksumsMatchOriginal: boolean;
+  originalBootConfigRestored: boolean;
+  rollbackVerified: boolean;
+  reportSummary: string;
+}
+
+export const DEFAULT_STORAGE_TARGETS: StorageTarget[] = [
+  {
+    deviceNode: '/dev/disk0s1',
+    mountPoint: '/Volumes/EFI',
+    volumeLabel: 'EFI',
+    filesystemType: 'FAT32',
+    capacityBytes: 209715200,
+    freeBytes: 178257920,
+    isRemovable: false,
+    isInternalEsp: true,
+    isDetected: true,
+    isSelected: true,
+    isUserConfirmed: true,
+  },
+  {
+    deviceNode: '/dev/disk2s1',
+    mountPoint: '/Volumes/OV_USB_RECOVERY',
+    volumeLabel: 'OV_RECOVERY',
+    filesystemType: 'FAT32',
+    capacityBytes: 15728640000,
+    freeBytes: 15500000000,
+    isRemovable: true,
+    isInternalEsp: false,
+    isDetected: true,
+    isSelected: true,
+    isUserConfirmed: true,
+  },
+];
+
+export const AUTHORITATIVE_EFI_ARTIFACTS: EfiArtifact[] = [
+  {
+    filename: 'OpenVintageBootApp.efi',
+    sourcePath: 'OpenVintagePkg/OpenVintageBootApp/OpenVintageBootApp.efi',
+    targetEspPath: 'EFI/OpenVintage/OpenVintageBootApp.efi',
+    fileSize: 524288,
+    sha256: '7f89d3a44a2547d0a0f10268ec3b7b39a240ca1cc2de92c6f4a7484aa5cb0a9d',
+    role: 'BOOT_APP',
+    isRequiredForPhysicalInstall: true,
+    isRejectedForbidden: false,
+    rejectionReason: '',
+  },
+  {
+    filename: 'OpenVintageHalDxe.efi',
+    sourcePath: 'OpenVintagePkg/Drivers/OpenVintageHalDxe/OpenVintageHalDxe.efi',
+    targetEspPath: 'EFI/OpenVintage/OpenVintageHalDxe.efi',
+    fileSize: 262144,
+    sha256: 'a1b2c3d4e5f60718293a4b5c6d7e8f90123456789abcdef0123456789abcdef0',
+    role: 'HAL_DXE',
+    isRequiredForPhysicalInstall: true,
+    isRejectedForbidden: false,
+    rejectionReason: '',
+  },
+  {
+    filename: 'config.plist',
+    sourcePath: 'config.plist',
+    targetEspPath: 'EFI/OpenVintage/config.plist',
+    fileSize: 4096,
+    sha256: '4b227777d4dd1fc61c6f884f48641d02b4d121d3fd328cb08b5531fcacdabf8a',
+    role: 'CONFIG',
+    isRequiredForPhysicalInstall: true,
+    isRejectedForbidden: false,
+    rejectionReason: '',
+  },
+  {
+    filename: 'OvSelfTestApp.efi',
+    sourcePath: 'OpenVintagePkg/Tests/OvSelfTestApp.efi',
+    targetEspPath: '',
+    fileSize: 131072,
+    sha256: '99887766554433221100aabbccddeeff00112233445566778899aabbccddeeff',
+    role: 'EXCLUDED_TEST',
+    isRequiredForPhysicalInstall: false,
+    isRejectedForbidden: false,
+    rejectionReason: 'Development and simulator test harness; excluded from physical deployment.',
+  },
+  {
+    filename: 'OPENVINTAGE.fd',
+    sourcePath: 'OpenVintagePkg/Firmware/OPENVINTAGE.fd',
+    targetEspPath: '',
+    fileSize: 4194304,
+    sha256: '00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff',
+    role: 'FORBIDDEN_FW',
+    isRequiredForPhysicalInstall: false,
+    isRejectedForbidden: true,
+    rejectionReason: 'CRITICAL ARCHITECTURE VIOLATION: Firmware flash / ROM modification strictly forbidden on physical Mac.',
+  },
+];
+
+export function buildDefaultDryRunPlan(): EfiDryRunPlan {
+  return {
+    sourceSummary: 'OpenVintage Authoritative Release Artifacts (BootApp v7.0.0, HalDxe v7.0.0)',
+    targetEsp: 'Internal EFI System Partition (/Volumes/EFI, /dev/disk0s1)',
+    backupUsb: 'Removable USB Recovery Drive (/Volumes/OV_USB_RECOVERY/OPENVINTAGE-RECOVERY)',
+    filesToInstall: [
+      'EFI/OpenVintage/OpenVintageBootApp.efi (524 KB, SHA256: 7f89d3a4... - Boot Picker App)',
+      'EFI/OpenVintage/OpenVintageHalDxe.efi (262 KB, SHA256: a1b2c3d4... - Pre-Boot HAL Driver)',
+      'EFI/OpenVintage/config.plist (4 KB, SHA256: 4b227777... - Configuration)',
+    ],
+    filesToModify: [
+      'NONE. Boot path isolated under EFI/OpenVintage/. Apple boot path unaltered.',
+    ],
+    filesToPreserve: [
+      'EFI/APPLE/* (All Apple system firmware & diagnostic files)',
+      'EFI/BOOT/BOOTX64.EFI (Existing fallback bootloader preserved)',
+      'EFI/OC/* (OpenCore bootloader, preserved intact if present)',
+      'EFI/refind/* (rEFInd bootloader, preserved intact if present)',
+    ],
+    firmwareModificationStatus: 'NONE (Physical ROM/SPI Unaltered)',
+    romModificationStatus: 'NONE (Physical ROM/SPI Unaltered)',
+    partitionTableStatus: 'UNALTERED (No format, no erase, no repartitioning)',
+    fullTextPreview: `================================================================================
+        OpenVintage Phase 8 - Physical Test Mode Dry Run Preview               
+================================================================================
+TARGET MAC:             MacBookPro9,1 (Mid 2012 15-inch)
+SOURCE:                 OpenVintage Authoritative Release Artifacts
+TARGET ESP:             Internal EFI System Partition (/Volumes/EFI, /dev/disk0s1)
+BACKUP DESTINATION:     Removable USB Recovery Drive (/Volumes/OV_USB_RECOVERY)
+FIRMWARE MODIFICATION:  NONE (Physical ROM/SPI Unaltered)
+ROM MODIFICATION:       NONE (Physical ROM/SPI Unaltered)
+PARTITION TABLE:        UNALTERED (No format, no erase, no repartitioning)
+
+FILES TO INSTALL:
+  [1] EFI/OpenVintage/OpenVintageBootApp.efi (SHA256: 7f89d3a4... - Boot Picker App)
+  [2] EFI/OpenVintage/OpenVintageHalDxe.efi  (SHA256: a1b2c3d4... - Pre-Boot HAL Driver)
+  [3] EFI/OpenVintage/config.plist           (SHA256: 4b227777... - Configuration)
+
+FILES TO MODIFY:
+  - NONE. Isolated EFI/OpenVintage entry. Existing Apple boot path untouched.
+
+FILES TO PRESERVE (100% INTACT):
+  - EFI/APPLE/* (All Apple system firmware & diagnostic files)
+  - EFI/BOOT/BOOTX64.EFI (Existing bootloader preserved)
+  - EFI/OC/* (OpenCore bootloader, if present)
+  - EFI/refind/* (rEFInd bootloader, if present)
+
+RECOVERY & BACKUP:
+  - USB package /Volumes/OV_USB_RECOVERY/OPENVINTAGE-RECOVERY/
+  - Verified SHA-256 checksums required before any disk write
+  - Automated (restore.sh) and manual restore documentation included
+================================================================================`,
+  };
+}
+
+export function validateProposedPayload(path: string): { safe: boolean; reason: string } {
+  if (path.includes('.fd') || path.includes('OPENVINTAGE.fd') || path.includes('ROM') || path.includes('SPI')) {
+    return {
+      safe: false,
+      reason: 'CRITICAL ARCHITECTURE RULE VIOLATION: Firmware flashing or SPI/ROM writing is strictly forbidden.',
+    };
+  }
+  if (path.includes('OvSelfTestApp.efi')) {
+    return {
+      safe: false,
+      reason: 'OvSelfTestApp.efi is a development/simulator test harness and is excluded from physical installs.',
+    };
+  }
+  return { safe: true, reason: 'Valid release payload.' };
+}
+

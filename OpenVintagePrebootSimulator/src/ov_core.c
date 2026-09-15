@@ -34,7 +34,7 @@ const char* ov_boot_phase_to_string(ov_boot_phase_t phase) {
 ov_status_t ov_core_init(void) {
     ov_logger_init("openvintage_preboot.log");
     ov_log_info("================================================================");
-    ov_log_info(" OpenVintage Pre-Boot Architecture Simulator (Phases 1-5)");
+    ov_log_info(" OpenVintage Pre-Boot Architecture Platform (Phase 7 v7.0.0)");
     ov_log_info("================================================================");
 
     memset(&ov_core_instance, 0, sizeof(ov_core_instance));

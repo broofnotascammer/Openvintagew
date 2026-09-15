@@ -20,6 +20,7 @@ export type NavTab =
   | 'compatibility' 
   | 'performance' 
   | 'boot' 
+  | 'installer'
   | 'integrations' 
   | 'diagnostics' 
   | 'settings';
@@ -58,6 +59,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'compatibility', label: 'Compatibility', icon: CheckCircle2 },
     { id: 'performance', label: 'Performance', icon: Zap },
     { id: 'boot', label: 'Boot Picker', icon: HardDrive },
+    { 
+      id: 'installer', 
+      label: 'EFI Installer', 
+      icon: ShieldCheck, 
+      badge: 'Phase 8', 
+      badgeTone: 'emerald' 
+    },
     { id: 'integrations', label: 'Integrations', icon: Boxes },
     { id: 'diagnostics', label: 'Diagnostics', icon: Activity },
     { id: 'settings', label: 'Settings', icon: Settings },

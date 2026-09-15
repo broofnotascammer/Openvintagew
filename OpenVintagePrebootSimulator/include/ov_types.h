@@ -1,5 +1,5 @@
 /**
- * OpenVintage Pre-Boot Architecture Simulator - Core Types & Enumerations
+ * OpenVintage Pre-Boot Simulator - Core Types & Enumerations
  * Bridges host simulator environment with OpenVintage Architecture.
  */
 
@@ -10,6 +10,23 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <string.h>
+
+/* OpenVintage Phase 7 Architecture Versioning */
+#define OPENVINTAGE_VERSION_MAJOR 7
+#define OPENVINTAGE_VERSION_MINOR 0
+#define OPENVINTAGE_VERSION_PATCH 0
+#define OPENVINTAGE_VERSION_STRING "7.0.0"
+#define OPENVINTAGE_BUILD_ID "OV7-RELEASE-PROD"
+
+/* Release Channels */
+typedef enum {
+    OV_CHANNEL_DEVELOPMENT = 0,
+    OV_CHANNEL_CANARY      = 1,
+    OV_CHANNEL_BETA        = 2,
+    OV_CHANNEL_STABLE      = 3
+} ov_release_channel_t;
+
+const char* ov_release_channel_to_string(ov_release_channel_t channel);
 
 /* OpenVintage Standard Status Codes */
 typedef enum {
@@ -77,7 +94,7 @@ typedef enum {
 
 const char* ov_cpu_type_to_string(ov_cpu_type_t type);
 
-/* GPU Architecture Generations */
+/* GPU Hardware Architecture Generations */
 typedef enum {
     OV_GPU_ARCH_UNKNOWN = 0,
     OV_GPU_ARCH_INTEL_GEN3 = 1,        /* GMA 950 / X3100 */
@@ -99,15 +116,15 @@ typedef enum {
     OV_GPU_ARCH_AMD_GCN_1_4 = 17,      /* FirePro D300/D500/D700, Radeon Pro 450/455/460/555/560/580X */
     OV_GPU_ARCH_AMD_GCN_5_VEGA = 18,   /* Vega 48, Vega 56, Vega 64, Vega II, Vega II Duo */
     OV_GPU_ARCH_AMD_RDNA_1_3 = 19,     /* Radeon Pro 5300M/5500M, W5700X, W6800X */
-    OV_GPU_ARCH_APPLE_SILICON_M1 = 20, /* Apple Silicon M1 GPU */
-    OV_GPU_ARCH_APPLE_SILICON_M2 = 21, /* Apple Silicon M2 GPU */
-    OV_GPU_ARCH_APPLE_SILICON_M3 = 22, /* Apple Silicon M3 GPU */
+    OV_GPU_ARCH_APPLE_SILICON_M1 = 20, /* Apple Silicon M1 GPU (8-core / 16-core / 32-core / 64-core) */
+    OV_GPU_ARCH_APPLE_SILICON_M2 = 21, /* Apple Silicon M2 GPU (10-core / 19-core / 38-core / 76-core) */
+    OV_GPU_ARCH_APPLE_SILICON_M3 = 22, /* Apple Silicon M3 GPU (Hardware Ray Tracing, Dynamic Caching) */
     OV_GPU_ARCH_SOFTWARE_FALLBACK = 23 /* CPU SoftPipe / llvmpipe fallback */
 } ov_gpu_arch_t;
 
 const char* ov_gpu_arch_to_string(ov_gpu_arch_t arch);
 
-/* GPU Family Types */
+/* GPU Family Legacy Types */
 typedef enum {
     OV_GPU_INTEL_GEN7_HD4000 = 0,
     OV_GPU_INTEL_GEN75_HD4600 = 1,
@@ -116,18 +133,15 @@ typedef enum {
     OV_GPU_AMD_RADEON = 4,
     OV_GPU_APPLE_SILICON = 5,
     OV_GPU_SOFTWARE_RASTERIZER = 6,
-    OV_GPU_NONE = 7,
-    OV_GPU_INTEL_GEN6_HD3000 = 8,
-    OV_GPU_INTEL_GEN75_HASWELL = 9,
-    OV_GPU_UNKNOWN = 10
+    OV_GPU_NONE = 7
 } ov_gpu_type_t;
 
 /* Metal Support Level */
 typedef enum {
     OV_METAL_NONE = 0,
-    OV_METAL_1 = 1,
-    OV_METAL_2 = 2,
-    OV_METAL_3 = 3
+    OV_METAL_1 = 1,    /* Metal 1 (macOS 10.11+, basic compute, Intel HD 4000, Kepler, GCN) */
+    OV_METAL_2 = 2,    /* Metal 2 (macOS 10.13+, argument buffers, tessellation) */
+    OV_METAL_3 = 3     /* Metal 3 (macOS 13+, fast resource loading, mesh shaders, Apple Silicon / modern AMD) */
 } ov_metal_support_t;
 
 const char* ov_metal_support_to_string(ov_metal_support_t level);
@@ -142,12 +156,12 @@ typedef enum {
 
 /* Resolver Decisions */
 typedef enum {
-    OV_RESOLUTION_NATIVE = 1,
-    OV_RESOLUTION_JIT_TRANSLATED = 2,
-    OV_RESOLUTION_RECOMPILED = 3,
-    OV_RESOLUTION_SIMPLIFIED = 4,
-    OV_RESOLUTION_FALLBACK = 5,
-    OV_RESOLUTION_UNSUPPORTED = 6
+    OV_RESOLUTION_NATIVE = 1,          /* Target silicon natively satisfies workload */
+    OV_RESOLUTION_JIT_TRANSLATED = 2,  /* Workload dynamically translated (e.g. ARM64->x86 or SPIRV->GLSL) */
+    OV_RESOLUTION_RECOMPILED = 3,      /* Workload statically recompiled */
+    OV_RESOLUTION_SIMPLIFIED = 4,      /* Clamped texture/shader for VRAM or HW limit compatibility */
+    OV_RESOLUTION_FALLBACK = 5,        /* Workload executed on CPU software emulation */
+    OV_RESOLUTION_UNSUPPORTED = 6      /* Workload cannot be executed on target architecture */
 } ov_resolution_decision_t;
 
 /* Execution Modes (legacy mapping) */
@@ -192,10 +206,10 @@ typedef enum {
 
 /* macOS Version Compatibility Rating */
 typedef enum {
-    OV_MACOS_SUPPORTED_NATIVE = 1,
-    OV_MACOS_SUPPORTED_WITH_PATCHES = 2,
-    OV_MACOS_SUPPORTED_SIMULATED = 3,
-    OV_MACOS_UNSUPPORTED = 4
+    OV_MACOS_SUPPORTED_NATIVE = 1,        /* Hardware meets all requirements natively */
+    OV_MACOS_SUPPORTED_WITH_PATCHES = 2,  /* Runs with OpenCore Legacy Patcher / patches */
+    OV_MACOS_SUPPORTED_SIMULATED = 3,     /* Runs under emulation / translation */
+    OV_MACOS_UNSUPPORTED = 4              /* Cannot run on this hardware */
 } ov_macos_compat_rating_t;
 
 const char* ov_macos_compat_rating_to_string(ov_macos_compat_rating_t rating);

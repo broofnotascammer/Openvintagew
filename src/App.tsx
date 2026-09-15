@@ -30,6 +30,9 @@ import {
   BootView 
 } from './components/BootView';
 import { 
+  SafeEfiInstallerView 
+} from './components/SafeEfiInstallerView';
+import { 
   IntegrationsView 
 } from './components/IntegrationsView';
 import { 
@@ -275,6 +278,13 @@ export default function App() {
                 targets={bootTargets}
                 onSetDefault={handleSetDefaultBoot}
                 onRefreshTargets={handleRefreshHardware}
+              />
+            )}
+
+            {activeTab === 'installer' && (
+              <SafeEfiInstallerView
+                profile={profile}
+                onRefreshHardware={handleRefreshHardware}
               />
             )}
 

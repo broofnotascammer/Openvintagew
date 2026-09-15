@@ -16,6 +16,10 @@ import {
   DEFAULT_INTEGRATIONS,
   DEFAULT_DEPLOYMENT_PLAN,
   HardwareProfileData,
+  DEFAULT_STORAGE_TARGETS,
+  AUTHORITATIVE_EFI_ARTIFACTS,
+  buildDefaultDryRunPlan,
+  validateProposedPayload,
 } from '../src/core/openvintageState';
 
 describe('1. Hardware Rendering & Profile Invariance', () => {
@@ -154,3 +158,73 @@ describe('5. Deployment Plan & Security Guardrails', () => {
     assert.strictEqual(oclp?.status, 'RECOMMENDED');
   });
 });
+
+describe('6. Phase 8: Safe Real-Hardware EFI Installer & Verified Backup/Restore', () => {
+  test('Strict distinction between internal ESP and removable USB recovery drive', () => {
+    assert.strictEqual(DEFAULT_STORAGE_TARGETS.length, 2);
+    const esp = DEFAULT_STORAGE_TARGETS.find((d) => d.isInternalEsp);
+    const usb = DEFAULT_STORAGE_TARGETS.find((d) => d.isRemovable);
+
+    assert.ok(esp !== undefined);
+    assert.ok(usb !== undefined);
+    assert.strictEqual(esp?.isRemovable, false);
+    assert.strictEqual(esp?.mountPoint, '/Volumes/EFI');
+    assert.strictEqual(usb?.isInternalEsp, false);
+    assert.strictEqual(usb?.mountPoint, '/Volumes/OV_USB_RECOVERY');
+  });
+
+  test('Authoritative EFI release artifacts identify required binaries and reject forbidden ROM/firmware', () => {
+    assert.strictEqual(AUTHORITATIVE_EFI_ARTIFACTS.length, 5);
+
+    const bootApp = AUTHORITATIVE_EFI_ARTIFACTS.find((a) => a.filename === 'OpenVintageBootApp.efi');
+    assert.ok(bootApp !== undefined);
+    assert.strictEqual(bootApp?.isRequiredForPhysicalInstall, true);
+    assert.strictEqual(bootApp?.targetEspPath, 'EFI/OpenVintage/OpenVintageBootApp.efi');
+
+    const halDxe = AUTHORITATIVE_EFI_ARTIFACTS.find((a) => a.filename === 'OpenVintageHalDxe.efi');
+    assert.ok(halDxe !== undefined);
+    assert.strictEqual(halDxe?.isRequiredForPhysicalInstall, true);
+    assert.strictEqual(halDxe?.targetEspPath, 'EFI/OpenVintage/OpenVintageHalDxe.efi');
+
+    const config = AUTHORITATIVE_EFI_ARTIFACTS.find((a) => a.filename === 'config.plist');
+    assert.ok(config !== undefined);
+    assert.strictEqual(config?.isRequiredForPhysicalInstall, true);
+
+    const selfTest = AUTHORITATIVE_EFI_ARTIFACTS.find((a) => a.filename === 'OvSelfTestApp.efi');
+    assert.ok(selfTest !== undefined);
+    assert.strictEqual(selfTest?.isRequiredForPhysicalInstall, false);
+
+    const fw = AUTHORITATIVE_EFI_ARTIFACTS.find((a) => a.filename === 'OPENVINTAGE.fd');
+    assert.ok(fw !== undefined);
+    assert.strictEqual(fw?.isRequiredForPhysicalInstall, false);
+    assert.strictEqual(fw?.isRejectedForbidden, true);
+  });
+
+  test('Payload safety validator blocks firmware volume images and test harnesses', () => {
+    const valFw = validateProposedPayload('OpenVintagePkg/Firmware/OPENVINTAGE.fd');
+    assert.strictEqual(valFw.safe, false);
+    assert.ok(valFw.reason.includes('CRITICAL ARCHITECTURE RULE VIOLATION'));
+
+    const valRom = validateProposedPayload('SPI_MacBookPro91_ROM.bin');
+    assert.strictEqual(valRom.safe, false);
+
+    const valTest = validateProposedPayload('OvSelfTestApp.efi');
+    assert.strictEqual(valTest.safe, false);
+    assert.ok(valTest.reason.includes('test harness'));
+
+    const valBoot = validateProposedPayload('OpenVintageBootApp.efi');
+    assert.strictEqual(valBoot.safe, true);
+  });
+
+  test('Dry run plan guarantees zero firmware and zero ROM modifications', () => {
+    const plan = buildDefaultDryRunPlan();
+    assert.ok(plan.firmwareModificationStatus.includes('NONE'));
+    assert.ok(plan.romModificationStatus.includes('NONE'));
+    assert.ok(plan.partitionTableStatus.includes('UNALTERED'));
+    assert.strictEqual(plan.filesToInstall.length, 3);
+    assert.ok(plan.filesToPreserve.some((f) => f.includes('EFI/APPLE/*')));
+    assert.ok(plan.fullTextPreview.includes('TARGET MAC:             MacBookPro9,1'));
+    assert.ok(plan.fullTextPreview.includes('FIRMWARE MODIFICATION:  NONE'));
+  });
+});
+

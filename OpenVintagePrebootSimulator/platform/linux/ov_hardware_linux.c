@@ -12,10 +12,6 @@
 #include <unistd.h>
 #include <dirent.h>
 
-#if defined(__linux__)
-#include <pci/pci.h>
-#endif
-
 /* CPUID validation */
 static uint32_t linux_cpuid_max_leaf(void) {
 #if defined(__x86_64__) || defined(_M_X64)

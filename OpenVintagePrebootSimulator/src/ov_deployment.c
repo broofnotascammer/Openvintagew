@@ -54,7 +54,7 @@ ov_status_t ov_deployment_step_create_plan(const char *description) {
     strncpy(s_plan.items[0].target_path, "/Volumes/EFI/EFI/BOOT/BOOTX64.EFI", sizeof(s_plan.items[0].target_path) - 1);
     strncpy(s_plan.items[0].action, "INSTALL", sizeof(s_plan.items[0].action) - 1);
     s_plan.items[0].payload_size = 512 * 1024;
-    strncpy(s_plan.items[0].payload_sha256, "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", sizeof(s_plan.items[0].payload_sha256) - 1);
+    snprintf(s_plan.items[0].payload_sha256, sizeof(s_plan.items[0].payload_sha256), "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855");
     s_plan.items[0].backed_up = false;
     s_plan.items[0].applied = false;
     s_plan.items[0].verified = false;
@@ -63,7 +63,7 @@ ov_status_t ov_deployment_step_create_plan(const char *description) {
     strncpy(s_plan.items[1].target_path, "/Volumes/EFI/EFI/OpenVintage/OvSelfTestApp.efi", sizeof(s_plan.items[1].target_path) - 1);
     strncpy(s_plan.items[1].action, "INSTALL", sizeof(s_plan.items[1].action) - 1);
     s_plan.items[1].payload_size = 256 * 1024;
-    strncpy(s_plan.items[1].payload_sha256, "ca978112ca1bbdcafac231b39a23dc4da786eff8147c4e72b9807785afee48bb", sizeof(s_plan.items[1].payload_sha256) - 1);
+    snprintf(s_plan.items[1].payload_sha256, sizeof(s_plan.items[1].payload_sha256), "ca978112ca1bbdcafac231b39a23dc4da786eff8147c4e72b9807785afee48bb");
     s_plan.items[1].backed_up = false;
     s_plan.items[1].applied = false;
     s_plan.items[1].verified = false;
@@ -72,7 +72,7 @@ ov_status_t ov_deployment_step_create_plan(const char *description) {
     strncpy(s_plan.items[2].target_path, "/Volumes/EFI/EFI/OpenVintage/config.plist", sizeof(s_plan.items[2].target_path) - 1);
     strncpy(s_plan.items[2].action, "CREATE", sizeof(s_plan.items[2].action) - 1);
     s_plan.items[2].payload_size = 4096;
-    strncpy(s_plan.items[2].payload_sha256, "4b227777d4dd1fc61c6f884f48641d02b4d121d3fd328cb08b5531fcacdabf8a", sizeof(s_plan.items[2].payload_sha256) - 1);
+    snprintf(s_plan.items[2].payload_sha256, sizeof(s_plan.items[2].payload_sha256), "4b227777d4dd1fc61c6f884f48641d02b4d121d3fd328cb08b5531fcacdabf8a");
     s_plan.items[2].backed_up = false;
     s_plan.items[2].applied = false;
     s_plan.items[2].verified = false;
