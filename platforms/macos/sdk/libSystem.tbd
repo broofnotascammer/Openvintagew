@@ -1,0 +1,15 @@
+--- !tapi-tbd-v3
+archs:           [ x86_64 ]
+uuids:           [ 'x86_64: 00000000-0000-0000-0000-000000000000' ]
+platform:        macosx
+install-name:    /usr/lib/libSystem.B.dylib
+current-version: 1281.100.1
+compatibility-version: 1.0.0
+exports:
+  - archs:           [ x86_64 ]
+    symbols:         [ dyld_stub_binder, ___stack_chk_fail, ___stack_chk_guard,
+                       _exit, _puts, _printf, _snprintf, _isatty, _fgets, _stdin,
+                       _system, _strcmp, _strncmp, _strlen, _strncpy, _strchr,
+                       _strstr, _malloc, _free, _memcpy, _memset, _time,
+                       _clock_gettime, _sysctlbyname ]
+...

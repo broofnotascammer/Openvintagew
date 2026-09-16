@@ -52,10 +52,13 @@ jobs:
           sudo apt-get install -y build-essential libpci-dev
 
       - name: Build OpenVintage CLI
-        run: make cli
+        run: make cli app
 
       - name: Run OpenVintage test suite
         run: make test
+
+      - name: Run OpenVintage App bundle & EFI tests
+        run: npx tsx --test tests/app_bundle.test.ts
 
   macos-intel:
     name: macOS Intel x86_64 — Catalina-compatible core
@@ -127,13 +130,15 @@ jobs:
           mkdir -p build/macos-ci bin
           clang \
             -Wall -Wextra -O2 -g \
-            -Iinclude -Iplatform/common -Iplatform/macos \
+            -Iinclude -Iplatform/common -Iplatform/macos -I../app/core_api \
             tests/test_runner.c \
+            ../app/core_api/ov_app_api.c \
             src/ov_types.c src/ov_logger.c src/ov_memory.c src/ov_hardware.c \
             src/ov_macos_compat.c src/ov_resolver.c src/ov_cpu_engine.c src/ov_gpu_engine.c \
             src/ov_resource_manager.c src/ov_unified_cache.c src/ov_compatibility.c \
             src/ov_benchmark.c src/ov_diagnostics.c src/ov_core.c src/ov_ui.c \
             src/ov_perf_profile.c src/ov_boot_picker.c src/ov_deployment.c \
+            src/ov_efi_installer.c \
             src/ov_oclp_adapter.c src/ov_refind_adapter.c src/ov_security.c \
             platform/common/ov_platform.c platform/macos/ov_hardware_macos.c \
             -target x86_64-apple-macos10.15 \

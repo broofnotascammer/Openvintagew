@@ -100,7 +100,10 @@ test: $(TEST_TARGET)
 	@chmod +x $(TEST_TARGET)
 	./$(TEST_TARGET)
 
-clean:
-	rm -rf bin/ build/ OpenVintagePrebootSimulator/bin OpenVintagePrebootSimulator/build
+app: $(CLI_TARGET)
+	./scripts/package_app.sh
 
-.PHONY: all cli test clean
+clean:
+	rm -rf bin/ build/ OpenVintagePrebootSimulator/bin OpenVintagePrebootSimulator/build OpenVintage.app
+
+.PHONY: all cli test clean app

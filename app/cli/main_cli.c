@@ -27,6 +27,8 @@ static void print_usage(const char *prog) {
     printf("  profile-set <name>     Apply performance profile (Max, Gaming, Balanced, Battery)\n");
     printf("  boot-targets           Enumerate bootable OS and EFI targets\n");
     printf("  boot-select <index>    Select boot target by index\n");
+    printf("  simulate <model>       Simulate specific hardware model (e.g. MacBookPro9,1)\n");
+    printf("  switch-gpu <index>     Switch active GPU in dual-GPU inventory\n");
     printf("  installer-dry-run      Execute Phase 8 Safe EFI Installer non-destructive dry-run\n");
     printf("  diagnostics            Generate complete diagnostics report (Text/JSON/HTML)\n");
     printf("  verify-efi             Validate OpenVintageBootApp.efi and OpenVintageHalDxe.efi\n");
@@ -302,6 +304,29 @@ int main(int argc, char *argv[]) {
                 printf("Selected boot target [%u]: %s\n", idx, ov_boot_picker_get_target(idx)->label);
             } else {
                 printf("Error: Invalid target index %u\n", idx);
+            }
+        }
+    } else if (strcmp(cmd, "simulate") == 0 || strcmp(cmd, "--simulate") == 0) {
+        const char *model = (argc >= 3) ? argv[2] : "MacBookPro9,1";
+        ov_status_t st = ov_app_load_simulated_profile(model);
+        if (st == OV_SUCCESS) {
+            printf("[+] Switched active hardware profile to architectural simulation: %s\n", model);
+            cmd_status();
+        } else {
+            printf("Error: Could not switch to simulated model '%s'\n", model);
+        }
+    } else if (strcmp(cmd, "switch-gpu") == 0) {
+        if (argc < 3) {
+            printf("Error: Please specify GPU index (0 = Integrated, 1 = Discrete)\n");
+        } else {
+            uint32_t gidx = (uint32_t)atoi(argv[2]);
+            ov_status_t st = ov_app_switch_active_gpu(gidx);
+            if (st == OV_SUCCESS) {
+                printf("[+] Active GPU successfully switched to index %u: %s\n",
+                       gidx, ov_hardware_get_active_gpu()->model_name);
+                printf("    Physical GPU inventory remains invariant (2 GPUs present).\n");
+            } else {
+                printf("Error: Failed to switch to GPU index %u\n", gidx);
             }
         }
     } else if (strcmp(cmd, "deploy-simulate") == 0) {

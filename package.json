@@ -11,7 +11,8 @@
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit",
     "test:frontend": "tsx --test tests/frontend.test.ts",
-    "test": "make test && tsx --test tests/frontend.test.ts"
+    "test:bundle": "tsx --test tests/app_bundle.test.ts",
+    "test": "make test && tsx --test tests/frontend.test.ts && tsx --test tests/app_bundle.test.ts"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",

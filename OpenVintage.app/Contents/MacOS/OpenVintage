@@ -1,0 +1,37 @@
+#!/bin/bash
+# OpenVintage macOS Application Executable Launcher
+# Compatible with macOS Catalina 10.15.8 (Intel x86_64) & Unix Environments
+
+DIR="$(cd "$(dirname "$0")" && pwd)"
+OS="$(uname -s)"
+
+# If running on macOS Darwin, execute the Mach-O binary or swift binary if available
+if [ "$OS" = "Darwin" ]; then
+    if [ -x "$DIR/OpenVintage-universal" ]; then
+        exec "$DIR/OpenVintage-universal" "$@"
+    elif [ -x "$DIR/OpenVintage-x86_64" ]; then
+        exec "$DIR/OpenVintage-x86_64" "$@"
+    fi
+fi
+
+# In Unix/Linux/Test environments, execute the native OpenVintage C-Core engine
+if [ -x "$DIR/openvintage-cli" ]; then
+    # If launched with arguments, pass through
+    if [ $# -gt 0 ]; then
+        # Filter macOS Finder process serial number argument (-psn_...)
+        case "$1" in
+            -psn*)
+                exec "$DIR/openvintage-cli" interactive
+                ;;
+            *)
+                exec "$DIR/openvintage-cli" "$@"
+                ;;
+        esac
+    else
+        # Default launch without arguments: launch interactive console mode (does not quit)
+        exec "$DIR/openvintage-cli" interactive
+    fi
+fi
+
+echo "Error: OpenVintage executable engine not found in $DIR" >&2
+exit 1
