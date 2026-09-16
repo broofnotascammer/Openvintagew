@@ -7,6 +7,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let hardware = NativeHardwareModel()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // Explicitly opt into a normal foreground macOS application. This
+        // avoids relying on implicit activation behaviour on older macOS.
+        NSApp.setActivationPolicy(.regular)
+
         let rootView = ContentView(hardware: hardware)
         let hostingView = NSHostingView(rootView: rootView)
 
@@ -18,11 +22,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         )
         window.title = "OpenVintage"
         window.contentView = hostingView
+        window.isOpaque = false
+        window.backgroundColor = .clear
+        window.titlebarAppearsTransparent = true
+        window.titleVisibility = .hidden
         window.center()
         window.setFrameAutosaveName("OpenVintage.MainWindow")
         window.isReleasedWhenClosed = false
         window.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
 
+        // Hardware discovery is read-only. Run it after the window is live so
+        // a slow/odd IOKit registry cannot prevent the application from opening.
         hardware.refresh()
     }
 
