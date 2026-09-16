@@ -192,7 +192,7 @@ jobs:
           retention-days: 14
 
   macos-app:
-    name: Native macOS application — universal
+    name: Native macOS application — Catalina x86_64 + modern arm64
     runs-on: macos-15-intel
     needs: [frontend, macos-intel]
 
@@ -200,23 +200,65 @@ jobs:
       - name: Checkout OpenVintage
         uses: actions/checkout@v6
 
+      - name: Show app build environment
+        shell: bash
+        run: |
+          set -euo pipefail
+          sw_vers
+          uname -m
+          xcodebuild -version
+          xcrun --sdk macosx --show-sdk-version
+          xcrun swiftc --version
+
       - name: Build native OpenVintage.app
         shell: bash
         run: |
           set -euo pipefail
           bash macOS/OpenVintageApp/build.sh
 
-      - name: Verify native app bundle
+      - name: Verify native app bundle and Catalina target
         shell: bash
         run: |
           set -euo pipefail
           APP="build/OpenVintageApp/OpenVintage.app"
+          BIN="$APP/Contents/MacOS/OpenVintage"
           test -d "$APP"
-          test -x "$APP/Contents/MacOS/OpenVintage"
-          file "$APP/Contents/MacOS/OpenVintage"
-          lipo -info "$APP/Contents/MacOS/OpenVintage"
+          test -x "$BIN"
+          file "$BIN"
+          lipo -info "$BIN"
           codesign --verify --deep --strict "$APP"
-          plutil -p "$APP/Contents/Info.plist"
+          plutil -lint "$APP/Contents/Info.plist"
+          plutil -extract LSMinimumSystemVersion raw "$APP/Contents/Info.plist" | grep -Fx '10.15'
+          echo "=== Mach-O deployment commands ==="
+          otool -l "$BIN" | grep -A4 -E 'LC_BUILD_VERSION|LC_VERSION_MIN_MACOSX'
+          echo "=== Linked frameworks ==="
+          otool -L "$BIN"
+
+      - name: Launch native app smoke test
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP="build/OpenVintageApp/OpenVintage.app"
+          BIN="$APP/Contents/MacOS/OpenVintage"
+          LOG="$RUNNER_TEMP/openvintage-app.log"
+          set +e
+          "$BIN" >"$LOG" 2>&1 &
+          PID=$!
+          sleep 8
+          if ! kill -0 "$PID" 2>/dev/null; then
+            STATUS=1
+          else
+            STATUS=0
+            kill "$PID" 2>/dev/null || true
+            wait "$PID" 2>/dev/null || true
+          fi
+          set -e
+          cat "$LOG" || true
+          if [ "$STATUS" -ne 0 ]; then
+            echo "OpenVintage.app executable exited before the smoke-test window could initialize."
+            exit 1
+          fi
+          echo "Native OpenVintage.app launch smoke test passed."
 
       - name: Package native macOS application
         shell: bash
