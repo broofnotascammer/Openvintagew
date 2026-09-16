@@ -13,8 +13,10 @@ final class NativeHardwareModel: ObservableObject {
     @Published var gpus: [String] = []
 
     func refresh() {
+        // Keep the synchronous portion limited to cheap sysctl calls so the
+        // native window can become interactive immediately on older Macs.
         model = sysctlString("hw.model") ?? "Unknown Mac"
-        cpu = sysctlString("machdep.cpu.brand_string") ?? "Apple / Unknown CPU"
+        cpu = sysctlString("machdep.cpu.brand_string") ?? "Unknown CPU"
         darwin = sysctlString("kern.osproductversion") ?? sysctlString("kern.osrelease") ?? "Unknown"
         kernel = sysctlString("kern.osrelease") ?? "Unknown"
 
@@ -24,9 +26,16 @@ final class NativeHardwareModel: ObservableObject {
             memory = "Unknown"
         }
 
-        gpus = detectGPUs()
-        if gpus.isEmpty {
-            gpus = ["No PCI display-class devices reported by IOKit"]
+        // IOKit enumeration can be slower on machines with unusual registry
+        // state. Perform it off the main thread and publish only on main.
+        DispatchQueue.global(qos: .utility).async { [weak self] in
+            guard let self = self else { return }
+            let detected = self.detectGPUs()
+            DispatchQueue.main.async {
+                self.gpus = detected.isEmpty
+                    ? ["No PCI display-class devices reported by IOKit"]
+                    : detected
+            }
         }
     }
 
@@ -57,19 +66,24 @@ final class NativeHardwareModel: ObservableObject {
             if service == 0 { break }
             defer { IOObjectRelease(service) }
 
-            guard let classValue = IORegistryEntryCreateCFProperty(service, "class-code" as CFString, kCFAllocatorDefault, 0)?.takeRetainedValue() else {
+            guard let classValue = IORegistryEntryCreateCFProperty(
+                service, "class-code" as CFString, kCFAllocatorDefault, 0
+            )?.takeRetainedValue() else {
                 continue
             }
-
-            guard let classCode = pciClassCode(classValue), classCode == 0x03 else { continue }
+            guard pciClassCode(classValue) == 0x03 else { continue }
 
             let vendor = registryNumber(service, key: "vendor-id")
             let device = registryNumber(service, key: "device-id")
-            let modelName = (IORegistryEntryCreateCFProperty(service, "model" as CFString, kCFAllocatorDefault, 0)?.takeRetainedValue() as? String)
-                ?? (IORegistryEntryCreateCFProperty(service, "compatible" as CFString, kCFAllocatorDefault, 0)?.takeRetainedValue() as? [String])?.first
+            let modelName = (IORegistryEntryCreateCFProperty(
+                service, "model" as CFString, kCFAllocatorDefault, 0
+            )?.takeRetainedValue() as? String)
+                ?? (IORegistryEntryCreateCFProperty(
+                    service, "compatible" as CFString, kCFAllocatorDefault, 0
+                )?.takeRetainedValue() as? [String])?.first
                 ?? "PCI graphics device"
 
-            if let vendor, let device {
+            if let vendor = vendor, let device = device {
                 result.append("\(modelName)  [PCI \(String(format: "%04X", vendor)):\(String(format: "%04X", device))]")
             } else {
                 result.append(modelName)
@@ -88,15 +102,19 @@ final class NativeHardwareModel: ObservableObject {
             return (number.uint32Value >> 16) & 0xff
         }
         if let data = value as? Data, data.count >= 3 {
-            // IOKit commonly exposes the PCI class code as big-endian bytes.
             return UInt32(data[data.startIndex])
         }
         return nil
     }
 
     private func registryNumber(_ service: io_service_t, key: String) -> UInt32? {
-        guard let value = IORegistryEntryCreateCFProperty(service, key as CFString, kCFAllocatorDefault, 0)?.takeRetainedValue() else { return nil }
-        if let number = value as? NSNumber { return number.uint32Value }
+        guard let value = IORegistryEntryCreateCFProperty(
+            service, key as CFString, kCFAllocatorDefault, 0
+        )?.takeRetainedValue() else { return nil }
+
+        if let number = value as? NSNumber {
+            return number.uint32Value
+        }
         if let data = value as? Data, data.count >= 4 {
             var result: UInt32 = 0
             for byte in data.prefix(4) {
