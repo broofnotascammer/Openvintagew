@@ -6,12 +6,20 @@ APP_DIR="$ROOT_DIR/macOS/OpenVintageApp"
 BUILD_DIR="$ROOT_DIR/build/OpenVintageApp"
 APP_BUNDLE="$BUILD_DIR/OpenVintage.app"
 CONTENTS="$APP_BUNDLE/Contents"
+SDK_PATH="$(xcrun --sdk macosx --show-sdk-path)"
+SDK_VERSION="$(xcrun --sdk macosx --show-sdk-version)"
 
 rm -rf "$BUILD_DIR"
 mkdir -p "$CONTENTS/MacOS" "$CONTENTS/Resources"
 
+echo "Using macOS SDK: $SDK_VERSION"
+
+echo "Building Catalina-compatible Intel slice..."
+
 COMMON_FLAGS=(
   -O
+  -swift-version 5
+  -sdk "$SDK_PATH"
   -framework SwiftUI
   -framework AppKit
   -framework IOKit
@@ -22,8 +30,14 @@ COMMON_FLAGS=(
   "$APP_DIR/NativeHardware.swift"
 )
 
-xcrun swiftc "${COMMON_FLAGS[@]}" -target x86_64-apple-macos10.15 -o "$BUILD_DIR/OpenVintage-x86_64"
-xcrun swiftc "${COMMON_FLAGS[@]}" -target arm64-apple-macos11.0 -o "$BUILD_DIR/OpenVintage-arm64"
+xcrun swiftc "${COMMON_FLAGS[@]}" \
+  -target x86_64-apple-macos10.15 \
+  -o "$BUILD_DIR/OpenVintage-x86_64"
+
+echo "Building arm64 slice (macOS 11+)..."
+xcrun swiftc "${COMMON_FLAGS[@]}" \
+  -target arm64-apple-macos11.0 \
+  -o "$BUILD_DIR/OpenVintage-arm64"
 
 lipo -create \
   -output "$CONTENTS/MacOS/OpenVintage" \
@@ -32,9 +46,19 @@ lipo -create \
 
 cp "$APP_DIR/Info.plist" "$CONTENTS/Info.plist"
 
+# Ensure this is a normal executable application bundle and create an
+# ad-hoc signature suitable for local development/CI validation.
+chmod +x "$CONTENTS/MacOS/OpenVintage"
 codesign --force --deep --sign - "$APP_BUNDLE"
 
 file "$CONTENTS/MacOS/OpenVintage"
 lipo -info "$CONTENTS/MacOS/OpenVintage"
 plutil -p "$CONTENTS/Info.plist"
+
+echo "=== Mach-O deployment targets ==="
+otool -l "$CONTENTS/MacOS/OpenVintage" | grep -A4 -E 'LC_BUILD_VERSION|LC_VERSION_MIN_MACOSX' || true
+
+echo "=== Linked frameworks ==="
+otool -L "$CONTENTS/MacOS/OpenVintage"
+
 echo "Built universal $APP_BUNDLE"
