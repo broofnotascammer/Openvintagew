@@ -1,5 +1,4 @@
-
-img src="logo.png"
+![LoGo](logo.png)
 Hardware-aware macOS compatibility, boot integration, graphics translation, and adaptive optimization platform for legacy and modern Apple hardware.
 
 OpenVintage is an experimental systems platform designed to build a deeper compatibility layer between Apple hardware and macOS than a conventional bootloader or static patch set.
