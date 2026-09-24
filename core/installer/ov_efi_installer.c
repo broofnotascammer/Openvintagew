@@ -377,7 +377,7 @@ ov_status_t ov_efi_installer_evaluate_safety_gates(ov_efi_safety_gates_t *out_ga
     s_gates.preboot_tests_pass = true;
 
     /* 11. Hardware Audit Passes */
-    s_gates.hardware_audit_passes = (prof != NULL && prof->gpu_count == 2);
+    s_gates.hardware_audit_passes = (prof != NULL && prof->gpu_topology.gpu_count == 2);
 
     /* 12. Simulation Passes */
     s_gates.simulation_passes = true;

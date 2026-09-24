@@ -24,10 +24,12 @@ COMMON_FLAGS=(
   -framework AppKit
   -framework IOKit
   -framework CoreFoundation
+  -framework Security
   "$APP_DIR/AppDelegate.swift"
   "$APP_DIR/AppMain.swift"
   "$APP_DIR/VisualEffectView.swift"
   "$APP_DIR/NativeHardware.swift"
+  "$APP_DIR/AppDiagnostics.swift"
 )
 
 xcrun swiftc "${COMMON_FLAGS[@]}" \
@@ -45,6 +47,18 @@ lipo -create \
   "$BUILD_DIR/OpenVintage-arm64"
 
 cp "$APP_DIR/Info.plist" "$CONTENTS/Info.plist"
+
+# Copy authoritative EFI artifacts for pre-boot staging and verification
+mkdir -p "$CONTENTS/Resources/firmware"
+if [ -f "$ROOT_DIR/preboot/firmware/OpenVintageBootApp.efi" ]; then
+  cp "$ROOT_DIR/preboot/firmware/OpenVintageBootApp.efi" "$CONTENTS/Resources/firmware/"
+fi
+if [ -f "$ROOT_DIR/preboot/firmware/OpenVintageHalDxe.efi" ]; then
+  cp "$ROOT_DIR/preboot/firmware/OpenVintageHalDxe.efi" "$CONTENTS/Resources/firmware/"
+fi
+if [ -f "$ROOT_DIR/OpenVintage.app/Contents/Resources/firmware/config.plist" ]; then
+  cp "$ROOT_DIR/OpenVintage.app/Contents/Resources/firmware/config.plist" "$CONTENTS/Resources/firmware/"
+fi
 
 # Ensure this is a normal executable application bundle and create an
 # ad-hoc signature suitable for local development/CI validation.

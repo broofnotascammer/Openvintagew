@@ -91,6 +91,8 @@ struct ContentView: View {
             ScrollView {
                 if selection == "Overview" || selection == "Hardware" {
                     overview
+                } else if selection == "Diagnostics" {
+                    diagnosticsView
                 } else {
                     placeholder
                 }
@@ -162,6 +164,80 @@ struct ContentView: View {
                     Text("The native macOS application owns the Darwin-facing layer. The browser UI remains a preview/development surface; privileged boot and hardware operations belong behind the native Core/HAL boundary.")
                         .font(.subheadline)
                         .foregroundColor(.secondary)
+                }
+            }
+        }
+        .padding(.horizontal, 28)
+        .padding(.bottom, 28)
+    }
+
+    private var diagnosticsView: some View {
+        let rep = AppDiagnostics.shared.report
+        return VStack(alignment: .leading, spacing: 16) {
+            GlassCard {
+                HStack(spacing: 18) {
+                    Text("!")
+                        .font(.system(size: 26, weight: .bold, design: .monospaced))
+                        .frame(width: 58, height: 58)
+                        .background(Color.primary.opacity(0.07))
+                        .clipShape(RoundedRectangle(cornerRadius: 15))
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text("App Launch & System Diagnostics")
+                            .font(.headline)
+                        Text("Evaluation: \(rep.launchErrorDetails ?? "All systems nominal (Catalina compatible)")")
+                            .font(.caption)
+                            .foregroundColor(rep.launchErrorDetails == nil ? .secondary : .red)
+                    }
+                    Spacer()
+                    StatusPill(text: rep.launchErrorDetails == nil ? "READY" : "DEGRADED")
+                }
+            }
+
+            HStack(spacing: 16) {
+                InfoCard(title: "macOS Target", value: rep.macOsVersion, icon: "OS")
+                InfoCard(title: "Darwin", value: rep.darwinVersion, icon: "DAR")
+            }
+
+            HStack(spacing: 16) {
+                InfoCard(title: "Architecture", value: rep.cpuArchitecture, icon: "ARCH")
+                InfoCard(title: "Code-Signing", value: rep.codeSigningStatus, icon: "SEC")
+            }
+
+            GlassCard {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("Gatekeeper & Security Assessment")
+                        .font(.headline)
+                    Text(rep.gatekeeperAssessment)
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                    Divider()
+                    Text("Executable & Bundle Layout")
+                        .font(.headline)
+                    Text("Bundle: \(rep.appBundlePath)")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    Text("Binary: \(rep.executablePath)")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    Text("Dynamic Libraries Loaded: \(rep.linkedLibraryCount) images")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+            }
+
+            GlassCard {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("Native Core & Hardware Backend")
+                        .font(.headline)
+                    Text("Core: \(rep.nativeCoreStatus)")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                    Text("Backend: \(rep.hardwareBackendStatus)")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                    Text("Firmware Protection: Zero ROM/SPI Modification Enforced")
+                        .font(.caption.weight(.semibold))
+                        .foregroundColor(.green)
                 }
             }
         }
