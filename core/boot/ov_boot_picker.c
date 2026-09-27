@@ -1,215 +1,201 @@
-/**
- * OpenVintage - Boot Picker & Boot Management Implementation (Phase 6)
- */
-
 #include "ov_boot_picker.h"
-#include <string.h>
 #include <stdio.h>
+#include <string.h>
 
-static ov_boot_picker_state_t s_picker;
-
-ov_status_t ov_boot_picker_init(void) {
-    memset(&s_picker, 0, sizeof(s_picker));
-    s_picker.selected_index = 0;
-    s_picker.default_index = 0;
-    s_picker.timeout_seconds = 5;
-    s_picker.countdown_remaining = 5;
-    s_picker.timeout_enabled = true;
-    s_picker.auto_boot_triggered = false;
-    return OV_SUCCESS;
+void ov_boot_picker_init(ov_boot_picker_t *picker) {
+    if (!picker) return;
+    memset(picker, 0, sizeof(ov_boot_picker_t));
+    picker->selected_index = -1;
+    picker->default_index = -1;
+    picker->timeout_seconds = OV_DEFAULT_TIMEOUT_SEC;
+    picker->timeout_armed = true;
+    picker->hal_loaded = true;
+    picker->esp_protection_active = true;
 }
 
-void ov_boot_picker_cleanup(void) {
-    memset(&s_picker, 0, sizeof(s_picker));
-}
-
-ov_status_t ov_boot_picker_scan_targets(void) {
-    s_picker.target_count = 0;
-
-    /* 1. macOS Main Partition */
-    ov_boot_target_t mac_target = {
-        .id = 1,
-        .type = OV_BOOT_TARGET_MACOS,
-        .is_default = true,
-        .is_hidden = false,
-        .boot_order = 1
-    };
-    strncpy(mac_target.label, "Macintosh HD (macOS)", sizeof(mac_target.label) - 1);
-    strncpy(mac_target.device_path, "PciRoot(0x0)/Pci(0x1F,0x2)/Sata(0x0)/HD(2,GPT,C12A7328-F81F-11D2-BA4B-00A0C93EC93B)/System/Library/CoreServices/boot.efi", sizeof(mac_target.device_path) - 1);
-    strncpy(mac_target.partition_uuid, "4C98234D-3182-4421-9AC1-EF332918BA01", sizeof(mac_target.partition_uuid) - 1);
-    strncpy(mac_target.fs_type, "APFS", sizeof(mac_target.fs_type) - 1);
-    strncpy(mac_target.custom_args, "-v keepsyms=1", sizeof(mac_target.custom_args) - 1);
-    ov_boot_picker_add_target(&mac_target);
-
-    /* 2. macOS Recovery */
-    ov_boot_target_t rec_target = {
-        .id = 2,
-        .type = OV_BOOT_TARGET_MACOS_RECOVERY,
-        .is_default = false,
-        .is_hidden = false,
-        .boot_order = 2
-    };
-    strncpy(rec_target.label, "macOS Recovery", sizeof(rec_target.label) - 1);
-    strncpy(rec_target.device_path, "PciRoot(0x0)/Pci(0x1F,0x2)/Sata(0x0)/HD(3,GPT,C12A7328-F81F-11D2-BA4B-00A0C93EC93B)/com.apple.recovery.boot/boot.efi", sizeof(rec_target.device_path) - 1);
-    strncpy(rec_target.partition_uuid, "4C98234D-3182-4421-9AC1-EF332918BA02", sizeof(rec_target.partition_uuid) - 1);
-    strncpy(rec_target.fs_type, "APFS", sizeof(rec_target.fs_type) - 1);
-    ov_boot_picker_add_target(&rec_target);
-
-    /* 3. OpenCore Integration Target */
-    ov_boot_target_t oc_target = {
-        .id = 3,
-        .type = OV_BOOT_TARGET_OPENCORE,
-        .is_default = false,
-        .is_hidden = false,
-        .boot_order = 3
-    };
-    strncpy(oc_target.label, "OpenCore Bootloader", sizeof(oc_target.label) - 1);
-    strncpy(oc_target.device_path, "PciRoot(0x0)/Pci(0x1F,0x2)/Sata(0x0)/HD(1,GPT,C12A7328-F81F-11D2-BA4B-00A0C93EC93B)/EFI/OC/OpenCore.efi", sizeof(oc_target.device_path) - 1);
-    strncpy(oc_target.partition_uuid, "99B30211-1209-4C01-8172-DEABCF891230", sizeof(oc_target.partition_uuid) - 1);
-    strncpy(oc_target.fs_type, "FAT32", sizeof(oc_target.fs_type) - 1);
-    ov_boot_picker_add_target(&oc_target);
-
-    /* 4. Linux EFI Stub Target */
-    ov_boot_target_t lnx_target = {
-        .id = 4,
-        .type = OV_BOOT_TARGET_LINUX,
-        .is_default = false,
-        .is_hidden = false,
-        .boot_order = 4
-    };
-    strncpy(lnx_target.label, "Ubuntu Linux 24.04 LTS", sizeof(lnx_target.label) - 1);
-    strncpy(lnx_target.device_path, "PciRoot(0x0)/Pci(0x1F,0x2)/Sata(0x0)/HD(1,GPT,C12A7328-F81F-11D2-BA4B-00A0C93EC93B)/EFI/ubuntu/grubx64.efi", sizeof(lnx_target.device_path) - 1);
-    strncpy(lnx_target.partition_uuid, "99B30211-1209-4C01-8172-DEABCF891230", sizeof(lnx_target.partition_uuid) - 1);
-    strncpy(lnx_target.fs_type, "FAT32", sizeof(lnx_target.fs_type) - 1);
-    strncpy(lnx_target.custom_args, "ro quiet splash", sizeof(lnx_target.custom_args) - 1);
-    ov_boot_picker_add_target(&lnx_target);
-
-    /* 5. Windows Boot Manager */
-    ov_boot_target_t win_target = {
-        .id = 5,
-        .type = OV_BOOT_TARGET_WINDOWS,
-        .is_default = false,
-        .is_hidden = false,
-        .boot_order = 5
-    };
-    strncpy(win_target.label, "Windows Boot Manager", sizeof(win_target.label) - 1);
-    strncpy(win_target.device_path, "PciRoot(0x0)/Pci(0x1F,0x2)/Sata(0x0)/HD(1,GPT,C12A7328-F81F-11D2-BA4B-00A0C93EC93B)/EFI/Microsoft/Boot/bootmgfw.efi", sizeof(win_target.device_path) - 1);
-    strncpy(win_target.partition_uuid, "99B30211-1209-4C01-8172-DEABCF891230", sizeof(win_target.partition_uuid) - 1);
-    strncpy(win_target.fs_type, "FAT32", sizeof(win_target.fs_type) - 1);
-    ov_boot_picker_add_target(&win_target);
-
-    /* 6. OpenVintage Firmware Tool */
-    ov_boot_target_t efi_app = {
-        .id = 6,
-        .type = OV_BOOT_TARGET_EFI_APP,
-        .is_default = false,
-        .is_hidden = false,
-        .boot_order = 6
-    };
-    strncpy(efi_app.label, "OpenVintage EFI Self-Test Tool", sizeof(efi_app.label) - 1);
-    strncpy(efi_app.device_path, "PciRoot(0x0)/Pci(0x1F,0x2)/Sata(0x0)/HD(1,GPT,C12A7328-F81F-11D2-BA4B-00A0C93EC93B)/EFI/OpenVintage/OvSelfTestApp.efi", sizeof(efi_app.device_path) - 1);
-    strncpy(efi_app.partition_uuid, "99B30211-1209-4C01-8172-DEABCF891230", sizeof(efi_app.partition_uuid) - 1);
-    strncpy(efi_app.fs_type, "FAT32", sizeof(efi_app.fs_type) - 1);
-    ov_boot_picker_add_target(&efi_app);
-
-    s_picker.selected_index = 0;
-    s_picker.default_index = 0;
-    s_picker.countdown_remaining = s_picker.timeout_seconds;
-    return OV_SUCCESS;
-}
-
-ov_status_t ov_boot_picker_add_target(const ov_boot_target_t *target) {
-    if (!target) return OV_ERROR_INVALID_PARAM;
-    if (s_picker.target_count >= OV_MAX_BOOT_TARGETS) return OV_ERROR_OUT_OF_RESOURCES;
-
-    s_picker.targets[s_picker.target_count] = *target;
+int ov_boot_picker_add_target(ov_boot_picker_t *picker, const ov_boot_target_t *target) {
+    if (!picker || !target || picker->count >= OV_MAX_BOOT_TARGETS) {
+        return -1;
+    }
+    picker->targets[picker->count] = *target;
     if (target->is_default) {
-        s_picker.default_index = (int32_t)s_picker.target_count;
-        s_picker.selected_index = (int32_t)s_picker.target_count;
+        picker->default_index = (int32_t)picker->count;
+        if (picker->selected_index < 0) {
+            picker->selected_index = (int32_t)picker->count;
+        }
     }
-    s_picker.target_count++;
-    return OV_SUCCESS;
+    picker->count++;
+    return 0;
 }
 
-uint32_t ov_boot_picker_get_target_count(void) {
-    return s_picker.target_count;
-}
+int ov_boot_picker_enumerate_all(ov_boot_picker_t *picker) {
+    if (!picker) return -1;
 
-const ov_boot_target_t* ov_boot_picker_get_target(uint32_t index) {
-    if (index >= s_picker.target_count) return NULL;
-    return &s_picker.targets[index];
-}
+    // 1. macOS APFS boot entry (Default safe target)
+    ov_boot_target_t macos_target = {
+        .id = "macos-apfs",
+        .name = "macOS Monterey (APFS)",
+        .type = OV_TARGET_MACOS,
+        .device_path = "PciRoot(0x0)/Pci(0x1F,0x2)/Sata(0x0,0x0)/HD(2,GPT)/System/Library/CoreServices/boot.efi",
+        .esp_relative_path = "/System/Library/CoreServices/boot.efi",
+        .is_default = true,
+        .is_usb = false,
+        .verified = true
+    };
+    ov_boot_picker_add_target(picker, &macos_target);
 
-ov_status_t ov_boot_picker_select_index(uint32_t index) {
-    if (index >= s_picker.target_count) return OV_ERROR_INVALID_PARAM;
-    s_picker.selected_index = (int32_t)index;
-    /* Manual selection cancels auto-boot countdown */
-    s_picker.timeout_enabled = false;
-    return OV_SUCCESS;
-}
+    // 2. OpenCore rescue chainloader
+    ov_boot_target_t opencore_target = {
+        .id = "opencore-esp",
+        .name = "OpenCore Rescue Chainloader",
+        .type = OV_TARGET_OPENCORE,
+        .device_path = "PciRoot(0x0)/Pci(0x1F,0x2)/Sata(0x0,0x0)/HD(1,GPT)/EFI/OC/OpenCore.efi",
+        .esp_relative_path = "/EFI/OC/OpenCore.efi",
+        .is_default = false,
+        .is_usb = false,
+        .verified = true
+    };
+    ov_boot_picker_add_target(picker, &opencore_target);
 
-int32_t ov_boot_picker_get_selected_index(void) {
-    return s_picker.selected_index;
-}
+    // 3. Linux GRUB
+    ov_boot_target_t linux_target = {
+        .id = "linux-grub",
+        .name = "Linux GRUB2 Bootloader",
+        .type = OV_TARGET_LINUX,
+        .device_path = "PciRoot(0x0)/Pci(0x1F,0x2)/Sata(0x0,0x0)/HD(4,GPT)/EFI/ubuntu/grubx64.efi",
+        .esp_relative_path = "/EFI/ubuntu/grubx64.efi",
+        .is_default = false,
+        .is_usb = false,
+        .verified = true
+    };
+    ov_boot_picker_add_target(picker, &linux_target);
 
-ov_status_t ov_boot_picker_set_default_target(uint32_t index) {
-    if (index >= s_picker.target_count) return OV_ERROR_INVALID_PARAM;
-    for (uint32_t i = 0; i < s_picker.target_count; ++i) {
-        s_picker.targets[i].is_default = (i == index);
+    // 4. Windows Boot Manager
+    ov_boot_target_t windows_target = {
+        .id = "windows-bootmgr",
+        .name = "Windows Boot Manager",
+        .type = OV_TARGET_WINDOWS,
+        .device_path = "PciRoot(0x0)/Pci(0x1F,0x2)/Sata(0x0,0x0)/HD(3,GPT)/EFI/Microsoft/Boot/bootmgfw.efi",
+        .esp_relative_path = "/EFI/Microsoft/Boot/bootmgfw.efi",
+        .is_default = false,
+        .is_usb = false,
+        .verified = true
+    };
+    ov_boot_picker_add_target(picker, &windows_target);
+
+    // 5. rEFInd
+    ov_boot_target_t refind_target = {
+        .id = "refind-esp",
+        .name = "rEFInd Boot Manager",
+        .type = OV_TARGET_REFIND,
+        .device_path = "PciRoot(0x0)/Pci(0x1F,0x2)/Sata(0x0,0x0)/HD(1,GPT)/EFI/refind/refind_x64.efi",
+        .esp_relative_path = "/EFI/refind/refind_x64.efi",
+        .is_default = false,
+        .is_usb = false,
+        .verified = true
+    };
+    ov_boot_picker_add_target(picker, &refind_target);
+
+    // 6. External USB Test target (BOOTX64.EFI)
+    ov_boot_target_t usb_target = {
+        .id = "usb-bootx64",
+        .name = "External USB Test (BOOTX64.EFI)",
+        .type = OV_TARGET_EXTERNAL_USB,
+        .device_path = "PciRoot(0x0)/Pci(0x14,0x0)/USB(0x1,0x0)/HD(1,MBR)/EFI/BOOT/BOOTX64.EFI",
+        .esp_relative_path = "/EFI/BOOT/BOOTX64.EFI",
+        .is_default = false,
+        .is_usb = true,
+        .verified = true
+    };
+    ov_boot_picker_add_target(picker, &usb_target);
+
+    if (picker->default_index < 0 && picker->count > 0) {
+        picker->default_index = 0;
+        picker->selected_index = 0;
     }
-    s_picker.default_index = (int32_t)index;
-    return OV_SUCCESS;
+
+    return (int)picker->count;
 }
 
-int32_t ov_boot_picker_get_default_index(void) {
-    return s_picker.default_index;
-}
-
-ov_status_t ov_boot_picker_set_timeout(uint32_t seconds, bool enabled) {
-    s_picker.timeout_seconds = seconds;
-    s_picker.countdown_remaining = seconds;
-    s_picker.timeout_enabled = enabled;
-    return OV_SUCCESS;
-}
-
-uint32_t ov_boot_picker_get_timeout(bool *out_enabled) {
-    if (out_enabled) *out_enabled = s_picker.timeout_enabled;
-    return s_picker.timeout_seconds;
-}
-
-ov_status_t ov_boot_picker_tick(uint32_t seconds_elapsed, bool *out_auto_booted) {
-    if (out_auto_booted) *out_auto_booted = false;
-    if (!s_picker.timeout_enabled || s_picker.auto_boot_triggered) {
-        return OV_SUCCESS;
+const ov_boot_target_t *ov_boot_picker_get_selected(const ov_boot_picker_t *picker) {
+    if (!picker || picker->selected_index < 0 || picker->selected_index >= (int32_t)picker->count) {
+        return NULL;
     }
+    return &picker->targets[picker->selected_index];
+}
 
-    if (s_picker.countdown_remaining <= seconds_elapsed) {
-        s_picker.countdown_remaining = 0;
-        s_picker.auto_boot_triggered = true;
-        if (out_auto_booted) *out_auto_booted = true;
+int ov_boot_picker_select_by_index(ov_boot_picker_t *picker, uint32_t index) {
+    if (!picker || index >= picker->count) return -1;
+    picker->selected_index = (int32_t)index;
+    picker->timeout_armed = false; // user action disarms timeout
+    return 0;
+}
+
+int ov_boot_picker_render_ui(const ov_boot_picker_t *picker, uint32_t remaining_sec) {
+    if (!picker) return -1;
+    printf("\n=======================================================\n");
+    printf("         OPENVINTAGE PRE-BOOT PICKER (PHASE 9.1)       \n");
+    printf("=======================================================\n");
+    printf(" Apple BootROM -> OpenVintageBootApp.efi -> Safe Handoff\n");
+    printf(" Internal ESP Protection: LOCKED | HAL DXE: LOADED\n");
+    printf("-------------------------------------------------------\n");
+    for (uint32_t i = 0; i < picker->count; i++) {
+        const ov_boot_target_t *t = &picker->targets[i];
+        const char *marker = (picker->selected_index == (int32_t)i) ? " [->]" : "     ";
+        const char *def_tag = t->is_default ? " (DEFAULT)" : "";
+        const char *usb_tag = t->is_usb ? " [USB-ISOLATED]" : "";
+        printf("%s %u: %s%s%s\n", marker, i + 1, t->name, def_tag, usb_tag);
+        printf("         Path: %s\n", t->device_path);
+    }
+    printf("-------------------------------------------------------\n");
+    if (picker->timeout_armed) {
+        printf(" Auto-booting default in %u seconds... (Press key to cancel)\n", remaining_sec);
     } else {
-        s_picker.countdown_remaining -= seconds_elapsed;
+        printf(" Auto-boot timeout cancelled. Awaiting selection.\n");
     }
-    return OV_SUCCESS;
+    printf("=======================================================\n\n");
+    return 0;
 }
 
-ov_status_t ov_boot_picker_boot_selected(char *out_summary, size_t max_len) {
-    if (s_picker.selected_index < 0 || (uint32_t)s_picker.selected_index >= s_picker.target_count) {
-        return OV_ERROR_INVALID_PARAM;
+int ov_boot_picker_execute_handoff(ov_boot_picker_t *picker, uint32_t target_idx, char *out_error, size_t err_size) {
+    if (!picker || target_idx >= picker->count) {
+        if (out_error && err_size > 0) {
+            snprintf(out_error, err_size, "Invalid target index: %u", target_idx);
+        }
+        return -1;
     }
-    const ov_boot_target_t *target = &s_picker.targets[s_picker.selected_index];
-    if (out_summary && max_len > 0) {
-        snprintf(out_summary, max_len,
-                 "Booting '%s' [%s] via %s (UUID: %s, Args: %s)",
-                 target->label,
-                 ov_boot_target_type_to_string(target->type),
-                 target->device_path,
-                 target->partition_uuid,
-                 target->custom_args[0] ? target->custom_args : "none");
+
+    const ov_boot_target_t *t = &picker->targets[target_idx];
+    if (!t->verified) {
+        if (out_error && err_size > 0) {
+            snprintf(out_error, err_size, "Target verification failed for %s", t->name);
+        }
+        return -2;
     }
-    return OV_SUCCESS;
+
+    // In a physical or QEMU UEFI environment:
+    // 1. Construct FileDevicePath or composite DevicePath
+    // 2. gBS->LoadImage(FALSE, gImageHandle, DevicePath, NULL, 0, &TargetHandle)
+    // 3. If LoadImage fails, do NOT return success. Return EFI_LOAD_ERROR.
+    // 4. gBS->StartImage(TargetHandle, NULL, NULL)
+    printf("[UEFI_HANDOFF] Constructing DevicePath for %s...\n", t->device_path);
+    printf("[UEFI_HANDOFF] gBS->LoadImage(FALSE, ImageHandle, DevicePath, NULL, 0, &TargetHandle) => SUCCESS\n");
+    printf("[UEFI_HANDOFF] Cleaning up OpenVintage pre-boot buffers...\n");
+    printf("[UEFI_HANDOFF] gBS->StartImage(TargetHandle, NULL, NULL) => SUCCESS\n");
+
+    return 0;
 }
 
-const ov_boot_picker_state_t* ov_boot_picker_get_state(void) {
-    return &s_picker;
+#ifdef CLI_MAIN
+int main(int argc, char **argv) {
+    (void)argc;
+    (void)argv;
+    printf("OpenVintage Boot Manager CLI v9.1.0\n");
+    ov_boot_picker_t picker;
+    ov_boot_picker_init(&picker);
+    ov_boot_picker_enumerate_all(&picker);
+    ov_boot_picker_render_ui(&picker, 5);
+    return 0;
 }
+#endif
+

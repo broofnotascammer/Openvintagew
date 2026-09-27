@@ -1,19 +1,10 @@
-## @file
-#  OpenVintage Boot Application
-#
-#  Native X64 UEFI Application for OpenVintage Platform Initialization & Hardware Telemetry.
-#
-#  Copyright (c) 2026 OpenVintage Project. All rights reserved.
-#  SPDX-License-Identifier: BSD-2-Clause-Patent
-##
-
 [Defines]
   INF_VERSION                    = 0x00010005
   BASE_NAME                      = OpenVintageBootApp
-  FILE_GUID                      = 8F5A720C-4A2B-4261-9C7E-2B6E3241C901
+  FILE_GUID                      = 8F49DC0B-C9EE-4D90-A861-68F4D620FA1B
   MODULE_TYPE                    = UEFI_APPLICATION
-  VERSION_STRING                 = 0.2
-  ENTRY_POINT                    = UefiMain
+  VERSION_STRING                 = 9.1.0
+  ENTRY_POINT                    = OpenVintageBootAppEntryPoint
 
 [Sources]
   OpenVintageBootApp.c
@@ -26,23 +17,17 @@
 [LibraryClasses]
   UefiApplicationEntryPoint
   UefiLib
-  BaseLib
+  UefiBootServicesTableLib
+  UefiRuntimeServicesTableLib
   BaseMemoryLib
   MemoryAllocationLib
+  DevicePathLib
   PrintLib
-  OpenVintageLogLib
-  OpenVintageCoreLib
-  OvLoggerLib
-  OvCoreLib
-  OvConfigLib
-  OvMemoryLib
-  OvHardwareLib
-  OvModuleLib
-  OvResolverLib
-  OvSchedulerLib
 
 [Protocols]
-  gOpenVintageHalProtocolGuid       ## SOMETIMES_CONSUMES
-  gEfiPciIoProtocolGuid             ## CONSUMES
-  gEfiBlockIoProtocolGuid           ## CONSUMES
-  gEfiGraphicsOutputProtocolGuid    ## CONSUMES
+  gEfiSimpleFileSystemProtocolGuid
+  gEfiDevicePathProtocolGuid
+  gEfiLoadedImageProtocolGuid
+  gEfiGraphicsOutputProtocolGuid
+  gEfiSimpleTextInProtocolGuid
+  gEfiSimpleTextInputExProtocolGuid
