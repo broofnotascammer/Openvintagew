@@ -84,3 +84,43 @@ int ov_installer_dry_run_audit(char *out_report, size_t report_size) {
     }
     return 0;
 }
+
+ov_status_t ov_installer_verify_target_disk(const ov_installation_config_t *config) {
+    if (!config) return OV_ERR_INVALID_PARAM;
+    if (strlen(config->target_device_node) == 0) return OV_ERR_INVALID_PARAM;
+
+    // Strict security gate: internal ESP (disk0s1, /dev/disk0, nvme, sda internal, or root) is forbidden
+    if (strstr(config->target_device_node, "disk0s1") != NULL ||
+        strstr(config->target_device_node, "disk0") != NULL ||
+        strstr(config->target_device_node, "nvme0n1p1") != NULL ||
+        strstr(config->target_device_node, "nvme0") != NULL ||
+        strcmp(config->target_device_node, "/") == 0 ||
+        strcmp(config->target_device_node, "/dev/sda") == 0) {
+        fprintf(stderr, "[SECURITY_GATE_ERROR] Physical internal disk targeted (%s)! Operation strictly blocked per DEVELOPMENT_AND_VALIDATION_POLICY.\n",
+                config->target_device_node);
+        return OV_ERR_SECURITY_VIOLATION;
+    }
+
+    return OV_SUCCESS;
+}
+
+ov_status_t ov_installer_prepare_manifest(const ov_installation_config_t *config, ov_install_manifest_t *out_manifest) {
+    if (!config || !out_manifest) return OV_ERR_INVALID_PARAM;
+    memset(out_manifest, 0, sizeof(ov_install_manifest_t));
+
+    ov_status_t st = ov_installer_verify_target_disk(config);
+    if (st != OV_SUCCESS) {
+        return st;
+    }
+
+    for (int i = 0; i < MASTER_ARTIFACT_COUNT; i++) {
+        out_manifest->artifacts[i] = s_master_artifacts[i];
+    }
+    out_manifest->artifact_count = MASTER_ARTIFACT_COUNT;
+    strncpy(out_manifest->target_device, config->target_device_node, sizeof(out_manifest->target_device) - 1);
+    out_manifest->is_dry_run = config->dry_run;
+    out_manifest->safety_verified = true;
+
+    return OV_SUCCESS;
+}
+
