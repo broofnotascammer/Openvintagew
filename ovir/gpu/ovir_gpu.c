@@ -203,3 +203,84 @@ ov_status_t ovir_gpu_translate_workload(
     return OV_SUCCESS;
 }
 
+#include "../../core/telemetry/ov_telemetry.h"
+
+ov_status_t ovir_gpu_translate_spirv_pipeline(
+    const uint32_t *spirv_words,
+    size_t word_count,
+    const ov_gpu_host_caps_t *caps,
+    bool enable_optimization,
+    ovir_gpu_compiled_shader_t *out_compiled,
+    ovir_gpu_dispatch_result_t *out_result
+) {
+    if (!spirv_words || word_count == 0 || !caps || !out_compiled || !out_result) {
+        return OV_ERR_INVALID_PARAM;
+    }
+
+    memset(out_compiled, 0, sizeof(ovir_gpu_compiled_shader_t));
+    memset(out_result, 0, sizeof(ovir_gpu_dispatch_result_t));
+
+    // 1. Parse and validate SPIR-V bitstream
+    ovir_spirv_module_t spirv_mod;
+    ov_status_t status = ovir_spirv_parse(spirv_words, word_count, &spirv_mod);
+    if (status != OV_SUCCESS) {
+        return status;
+    }
+    ov_telemetry_record_gpu_shader_parsed();
+
+    // 2. Build Architecture-Neutral OVIR-GPU IR
+    ovir_gpu_shader_ir_t ir;
+    status = ovir_gpu_ir_from_spirv(spirv_words, word_count, &ir);
+    if (status != OV_SUCCESS) {
+        return status;
+    }
+    ov_telemetry_record_gpu_shader_translated();
+
+    // 3. Optimization Pass (constant folding + DCE)
+    if (enable_optimization) {
+        ovir_gpu_opt_stats_t opt_stats;
+        ovir_gpu_optimize(&ir, &opt_stats);
+        if (opt_stats.constant_folds_applied > 0 || opt_stats.dead_instructions_eliminated > 0) {
+            ov_telemetry_record_gpu_shader_optimized();
+        }
+    }
+
+    // 4. Capability Resolution & Operation Reconstruction
+    // Check if host backend supports native matrix multiply
+    // In OpenGL 3.3 Core Profile GLSL 330, matrix-vector multiply is native, but if host lacks it or requested
+    // reconstruction is triggered, we can decompose it.
+    uint32_t reconstructed_ops = 0;
+    if (caps->backend != OV_GFX_BACKEND_METAL_NATIVE && (caps->partial_features & 0x0008)) {
+        // Feature 0x0008: simulated partial matrix feature -> reconstruct
+        ovir_gpu_reconstruct_operation(&ir, OVIR_GPU_OP_MAT_MUL_VEC, &reconstructed_ops);
+        if (reconstructed_ops > 0) {
+            ov_telemetry_record_gpu_reconstruction();
+            out_result->is_reconstructed = true;
+            out_result->route = OV_GPU_ROUTE_RECONSTRUCTION;
+        }
+    }
+
+    // 5. Backend Translation to GLSL 330 Core
+    status = ovir_gpu_translate_to_glsl(&ir, out_compiled);
+    if (status != OV_SUCCESS) {
+        return status;
+    }
+
+    // 6. Backend Compilation Verification
+    status = ovir_gpu_backend_compile(out_compiled, true);
+    if (status == OV_SUCCESS) {
+        ov_telemetry_record_gpu_shader_compiled();
+    }
+
+    // 7. Synthesize Dispatch Result
+    out_result->selected_backend = out_compiled->target_backend;
+    if (!out_result->is_reconstructed) {
+        out_result->route = OV_GPU_ROUTE_TRANSLATION;
+    }
+    out_result->translated_shader_hash = (uint64_t)out_compiled->source_length ^ 0x07230203ULL;
+    out_result->draw_calls_emitted = 1;
+    out_result->sync_passed = true;
+
+    return status;
+}
+

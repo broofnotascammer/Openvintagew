@@ -123,5 +123,19 @@ ov_status_t ovir_gpu_translate_workload(
 
 const char *ov_gpu_route_name(ov_gpu_route_t route);
 
+// Phase 14: Real Shader Pipeline Integration
+#include "ovir_spirv.h"
+#include "ovir_gpu_ir.h"
+#include "ovir_gpu_opt.h"
+#include "ovir_gpu_backend.h"
+
+ov_status_t ovir_gpu_translate_spirv_pipeline(
+    const uint32_t *spirv_words,
+    size_t word_count,
+    const ov_gpu_host_caps_t *caps,
+    bool enable_optimization,
+    ovir_gpu_compiled_shader_t *out_compiled,
+    ovir_gpu_dispatch_result_t *out_result
+);
 
 #endif /* OVIR_GPU_H */

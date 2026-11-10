@@ -60,6 +60,30 @@ void ov_telemetry_record_mmu_page_fault(void) {
     s_runtime_stats.mmu_page_faults++;
 }
 
+void ov_telemetry_record_gpu_shader_parsed(void) {
+    s_runtime_stats.gpu_shaders_parsed++;
+}
+
+void ov_telemetry_record_gpu_shader_translated(void) {
+    s_runtime_stats.gpu_shaders_translated++;
+}
+
+void ov_telemetry_record_gpu_shader_optimized(void) {
+    s_runtime_stats.gpu_shaders_optimized++;
+}
+
+void ov_telemetry_record_gpu_shader_compiled(void) {
+    s_runtime_stats.gpu_shaders_compiled++;
+}
+
+void ov_telemetry_record_gpu_reconstruction(void) {
+    s_runtime_stats.gpu_reconstructions_applied++;
+}
+
+void ov_telemetry_record_gpu_cpu_fallback(void) {
+    s_runtime_stats.gpu_cpu_fallbacks_invoked++;
+}
+
 const ov_runtime_telemetry_t *ov_telemetry_get_runtime_stats(void) {
     return &s_runtime_stats;
 }

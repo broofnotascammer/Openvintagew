@@ -31,6 +31,13 @@ typedef struct {
     uint64_t mmu_tlb_misses;
     uint64_t mmu_page_walks;
     uint64_t mmu_page_faults;
+    // Phase 14 GPU Translation & Execution metrics
+    uint64_t gpu_shaders_parsed;
+    uint64_t gpu_shaders_translated;
+    uint64_t gpu_shaders_optimized;
+    uint64_t gpu_shaders_compiled;
+    uint64_t gpu_reconstructions_applied;
+    uint64_t gpu_cpu_fallbacks_invoked;
 } ov_runtime_telemetry_t;
 
 typedef struct timespec ov_timestamp_t;
@@ -50,6 +57,14 @@ void ov_telemetry_record_mmu_tlb_hit(void);
 void ov_telemetry_record_mmu_tlb_miss(void);
 void ov_telemetry_record_mmu_page_walk(void);
 void ov_telemetry_record_mmu_page_fault(void);
+
+// Phase 14 GPU telemetry recording functions
+void ov_telemetry_record_gpu_shader_parsed(void);
+void ov_telemetry_record_gpu_shader_translated(void);
+void ov_telemetry_record_gpu_shader_optimized(void);
+void ov_telemetry_record_gpu_shader_compiled(void);
+void ov_telemetry_record_gpu_reconstruction(void);
+void ov_telemetry_record_gpu_cpu_fallback(void);
 
 const ov_runtime_telemetry_t *ov_telemetry_get_runtime_stats(void);
 void ov_telemetry_reset_runtime_stats(void);
