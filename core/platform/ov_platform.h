@@ -11,6 +11,11 @@ const ov_platform_info_t *ov_platform_get_info(void);
 void ov_platform_populate_host_env(ov_host_env_t *out_host);
 void ov_platform_cleanup(void);
 
+// Discovery Mode & Mock Profiles (Phase 15.1)
+ov_status_t ov_platform_set_discovery_mode(ov_discovery_mode_t mode, const char *profile_name);
+ov_discovery_mode_t ov_platform_get_discovery_mode(void);
+ov_status_t ov_platform_apply_mock_profile(const char *profile_name, ov_platform_info_t *out_info);
+
 // CPU Detection
 ov_status_t ov_platform_detect_cpu(ov_platform_cpu_caps_t *out_cpu);
 

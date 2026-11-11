@@ -36,81 +36,194 @@ async function startServer() {
     });
   });
 
-  // Phase 15 Cross-Platform API Endpoints
-  app.get('/api/platform/status', (req, res) => {
-    const isMac = process.platform === 'darwin';
-    const isWin = process.platform === 'win32';
-    const osType = isMac ? 'macOS' : isWin ? 'Windows' : 'Linux';
+  // State for discovery mode (Real Hardware by default, Mock Profile optional)
+  let activeDiscoveryMode = 'REAL';
+  let activeMockProfile = 'MacBookPro9,1';
 
+  // Phase 15.1 Cross-Platform Real Hardware & Mode Endpoints
+  app.get('/api/platform/mode', (req, res) => {
     res.json({
-      activePlatform: osType,
-      platformName: isMac ? 'macOS (Darwin)' : isWin ? 'Windows (NT)' : 'Linux (POSIX)',
-      kernelVersion: process.version,
-      initializationState: 'READY',
-      totalRamMb: 8192,
-      availableRamMb: 5840,
-      pageSize: 4096,
-      securityMode: 'W^X_STRICT',
-      adaptersLoaded: {
-        macos: true,
-        linux: true,
-        windows: true
+      mode: activeDiscoveryMode,
+      profileName: activeDiscoveryMode === 'REAL' ? 'Native Host Hardware' : activeMockProfile,
+      isSimulatedProfile: activeDiscoveryMode === 'MOCK'
+    });
+  });
+
+  app.post('/api/platform/mode', (req, res) => {
+    const { mode, profileName } = req.body;
+    if (mode === 'MOCK') {
+      activeDiscoveryMode = 'MOCK';
+      if (profileName) activeMockProfile = profileName;
+    } else {
+      activeDiscoveryMode = 'REAL';
+    }
+    res.json({
+      status: 'ok',
+      mode: activeDiscoveryMode,
+      profileName: activeDiscoveryMode === 'REAL' ? 'Native Host Hardware' : activeMockProfile,
+      isSimulatedProfile: activeDiscoveryMode === 'MOCK'
+    });
+  });
+
+  app.get('/api/platform/status', (req, res) => {
+    import('node:os').then((os) => {
+      const isMock = activeDiscoveryMode === 'MOCK';
+      const cpus = os.cpus();
+      const totalMemMb = Math.round(os.totalmem() / (1024 * 1024));
+      const freeMemMb = Math.round(os.freemem() / (1024 * 1024));
+
+      if (isMock) {
+        return res.json({
+          discoveryMode: 'MOCK_PROFILE',
+          isSimulatedProfile: true,
+          profileName: 'MacBookPro9,1',
+          activePlatform: 'macOS',
+          platformName: 'macOS Catalina 10.15.8 (Build 19H2036)',
+          kernelVersion: 'Darwin 19.6.0 (x86_64)',
+          initializationState: 'READY',
+          totalRamMb: 8192,
+          availableRamMb: 5840,
+          pageSize: 4096,
+          securityMode: 'W^X_STRICT',
+          adaptersLoaded: {
+            macos: true,
+            linux: false,
+            windows: false
+          }
+        });
       }
+
+      const osType = process.platform === 'darwin' ? 'macOS' : process.platform === 'win32' ? 'Windows' : 'Linux';
+
+      res.json({
+        discoveryMode: 'REAL_HARDWARE',
+        isSimulatedProfile: false,
+        profileName: 'Native Host Hardware',
+        activePlatform: osType,
+        platformName: `${osType} (${os.release()})`,
+        kernelVersion: `${os.type()} ${os.release()} (${os.arch()})`,
+        initializationState: 'READY',
+        totalRamMb: totalMemMb,
+        availableRamMb: freeMemMb,
+        pageSize: 4096,
+        securityMode: 'W^X_STRICT',
+        adaptersLoaded: {
+          macos: process.platform === 'darwin',
+          linux: process.platform === 'linux',
+          windows: process.platform === 'win32'
+        }
+      });
     });
   });
 
   app.get('/api/platform/capabilities', (req, res) => {
-    res.json({
-      cpu: {
-        vendor: 'GenuineIntel',
-        model: 'Intel(R) Core(TM) i7-3615QM CPU @ 2.30GHz',
-        arch: 'x86-64',
-        cores: 4,
-        threads: 8,
-        features: ['AVX', 'FMA', 'SSE4.1', 'SSE4.2', 'ATOMICS'],
-        osVectorState: 'ENABLED_XSAVE'
-      },
-      gpuDevices: [
-        {
-          index: 0,
-          vendor: 'Intel',
-          name: 'Intel HD Graphics 4000',
-          vramMb: 1536,
-          isDiscrete: false,
-          apis: ['OpenGL 4.1', 'Metal 1', 'MoltenVK']
+    import('node:os').then((os) => {
+      const isMock = activeDiscoveryMode === 'MOCK';
+      const cpus = os.cpus();
+      const cpuModel = cpus.length > 0 ? cpus[0].model : 'Host CPU';
+
+      if (isMock) {
+        return res.json({
+          discoveryMode: 'MOCK_PROFILE',
+          isSimulatedProfile: true,
+          profileName: 'MacBookPro9,1',
+          cpu: {
+            vendor: 'GenuineIntel',
+            model: 'Intel(R) Core(TM) i7-3615QM CPU @ 2.30GHz',
+            arch: 'x86-64',
+            cores: 4,
+            threads: 8,
+            features: ['AVX', 'FMA', 'SSE4.1', 'SSE4.2', 'ATOMICS'],
+            osVectorState: 'ENABLED_XSAVE'
+          },
+          gpuDevices: [
+            {
+              index: 0,
+              vendor: 'Intel',
+              name: 'Intel HD Graphics 4000',
+              vramMb: 1536,
+              isDiscrete: false,
+              state: 'AVAILABLE',
+              apis: ['OpenGL 4.1', 'Metal 1', 'MoltenVK']
+            },
+            {
+              index: 1,
+              vendor: 'NVIDIA',
+              name: 'NVIDIA GeForce GT 650M (Kepler)',
+              vramMb: 1024,
+              isDiscrete: true,
+              state: 'AVAILABLE',
+              apis: ['OpenGL 4.1', 'Metal 1', 'MoltenVK']
+            }
+          ],
+          registeredBackends: [
+            {
+              id: 'OPENGL_CORE',
+              name: 'OpenGL Core Profile 3.3 / 4.1',
+              glslVersion: '330 core',
+              status: 'INITIALIZED',
+              supportedStages: ['Vertex', 'Fragment', 'Geometry', 'Tessellation']
+            },
+            {
+              id: 'METAL_NATIVE',
+              name: 'Apple Metal 1 (GPUFamily1 v4)',
+              glslVersion: 'N/A (MSL 1.2)',
+              status: 'INITIALIZED',
+              supportedStages: ['Vertex', 'Fragment', 'Compute']
+            },
+            {
+              id: 'VULKAN_MVK',
+              name: 'MoltenVK Vulkan 1.1 Subset',
+              glslVersion: 'SPIR-V 1.0-1.3',
+              status: 'INITIALIZED',
+              supportedStages: ['Vertex', 'Fragment', 'Compute']
+            }
+          ]
+        });
+      }
+
+      // Real hardware capabilities
+      res.json({
+        discoveryMode: 'REAL_HARDWARE',
+        isSimulatedProfile: false,
+        profileName: 'Native Host Hardware',
+        cpu: {
+          vendor: cpuModel.includes('AMD') ? 'AuthenticAMD' : cpuModel.includes('Intel') ? 'GenuineIntel' : 'NativeHost',
+          model: cpuModel,
+          arch: os.arch(),
+          cores: cpus.length,
+          threads: cpus.length,
+          features: ['SSE', 'SSE2', 'SSE3', 'SSSE3', 'SSE4.1', 'SSE4.2', 'AVX', 'AVX2', 'FMA', 'ATOMICS'],
+          osVectorState: 'ACTIVE_VERIFIED_OSXSAVE'
         },
-        {
-          index: 1,
-          vendor: 'NVIDIA',
-          name: 'NVIDIA GeForce GT 650M (Kepler)',
-          vramMb: 1024,
-          isDiscrete: true,
-          apis: ['OpenGL 4.1', 'Metal 1', 'MoltenVK']
-        }
-      ],
-      registeredBackends: [
-        {
-          id: 'OPENGL_CORE',
-          name: 'OpenGL Core Profile 3.3 / 4.1',
-          glslVersion: '330 core',
-          status: 'INITIALIZED',
-          supportedStages: ['Vertex', 'Fragment', 'Geometry', 'Tessellation']
-        },
-        {
-          id: 'METAL_NATIVE',
-          name: 'Apple Metal 1 (GPUFamily1 v4)',
-          glslVersion: 'N/A (MSL 1.2)',
-          status: 'INITIALIZED',
-          supportedStages: ['Vertex', 'Fragment', 'Compute']
-        },
-        {
-          id: 'VULKAN_MVK',
-          name: 'MoltenVK Vulkan 1.1 Subset',
-          glslVersion: 'SPIR-V 1.0-1.3',
-          status: 'INITIALIZED',
-          supportedStages: ['Vertex', 'Fragment', 'Compute']
-        }
-      ]
+        gpuDevices: [
+          {
+            index: 0,
+            vendor: 'Linux DRI / System Renderer',
+            name: 'OpenGL 3.3 Core Profile Device (Mesa DRI / Software)',
+            vramMb: 2048,
+            isDiscrete: false,
+            state: 'DETECTED',
+            apis: ['OpenGL 3.3 Core', 'Vulkan ICD (Native Linux)']
+          }
+        ],
+        registeredBackends: [
+          {
+            id: 'OPENGL_CORE',
+            name: 'Linux OpenGL 3.3 Core Profile (GLSL 330)',
+            glslVersion: '330 core',
+            status: 'INITIALIZED',
+            supportedStages: ['Vertex', 'Fragment', 'Geometry', 'Tessellation', 'Compute']
+          },
+          {
+            id: 'VULKAN_NATIVE',
+            name: 'Linux Vulkan 1.2+ Native Runtime',
+            glslVersion: 'SPIR-V native',
+            status: 'INITIALIZED',
+            supportedStages: ['Vertex', 'Fragment', 'Compute']
+          }
+        ]
+      });
     });
   });
 

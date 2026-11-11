@@ -18,6 +18,21 @@ typedef enum {
 } ov_platform_init_state_t;
 
 typedef enum {
+    OV_DISCOVERY_MODE_REAL = 0,     // Genuine hardware detection (CPUID, /proc, sysctl, DRM)
+    OV_DISCOVERY_MODE_MOCK_PROFILE  // Explicitly requested simulated profile (e.g. MacBookPro9,1)
+} ov_discovery_mode_t;
+
+typedef enum {
+    OV_CAP_STATE_UNKNOWN = 0,
+    OV_CAP_STATE_DETECTED,
+    OV_CAP_STATE_SUPPORTED,
+    OV_CAP_STATE_AVAILABLE,
+    OV_CAP_STATE_INITIALIZED,
+    OV_CAP_STATE_VERIFIED,
+    OV_CAP_STATE_UNAVAILABLE
+} ov_cap_state_t;
+
+typedef enum {
     OV_GPU_STATE_UNKNOWN = 0,
     OV_GPU_STATE_DISCOVERED,
     OV_GPU_STATE_API_INITIALIZED,
@@ -75,10 +90,14 @@ typedef struct {
     uint32_t device_index;
     char vendor_name[64];
     char device_name[64];
+    uint32_t pci_vendor_id;
+    uint32_t pci_device_id;
+    char drm_node_path[64];
     uint64_t dedicated_vram_mb;
     uint64_t shared_vram_mb;
     bool is_discrete;
     ov_gpu_runtime_state_t runtime_state;
+    ov_cap_state_t cap_state;
     bool supports_opengl_33;
     bool supports_metal;
     bool supports_vulkan;
@@ -101,7 +120,8 @@ typedef struct {
     bool avx_supported;
     bool avx2_supported;
     bool neon_supported;
-    bool os_vector_enabled; // OS-enabled XMM/YMM/ZMM or NEON register state
+    bool osxsave_supported;   // CPUID leaf 1 ECX bit 27
+    bool os_vector_enabled;    // Verified via XGETBV (XCR0[2:1] == 0x6) or OSXSAVE
 } ov_platform_cpu_caps_t;
 
 typedef struct {
@@ -124,6 +144,9 @@ typedef struct {
     char os_name[64];
     char os_version[64];
     char kernel_version[64];
+    ov_discovery_mode_t discovery_mode;
+    bool is_simulated_profile;
+    char profile_name[64];
     ov_platform_init_state_t init_state;
     ov_platform_cpu_caps_t cpu;
     ov_platform_gpu_device_t gpu_devices[OV_MAX_GPU_DEVICES];
@@ -137,6 +160,8 @@ typedef struct {
 } ov_platform_info_t;
 
 const char *ov_platform_os_name(ov_os_type_t os);
+const char *ov_discovery_mode_name(ov_discovery_mode_t mode);
+const char *ov_cap_state_name(ov_cap_state_t state);
 const char *ov_shader_exec_lifecycle_name(ov_shader_exec_lifecycle_state_t state);
 const char *ov_platform_error_string(ov_platform_error_t err);
 

@@ -8,7 +8,7 @@
     "build": "vite build",
     "lint": "tsc --noEmit",
     "start": "NODE_ENV=production tsx server.ts",
-    "test": "node --test tests/*.test.js 2>/dev/null || node -e 'console.log(\"All test suites passed.\")'"
+    "test": "node --test tests/*.test.js"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",

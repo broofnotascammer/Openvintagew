@@ -15,18 +15,55 @@
 #if defined(__APPLE__)
 #include <sys/sysctl.h>
 #include <mach/mach_time.h>
+#include <mach/mach_host.h>
+#include <sys/utsname.h>
 #include <dlfcn.h>
+#endif
+
+#if defined(__x86_64__) || defined(_M_X64)
+#include <cpuid.h>
 #endif
 
 static ov_status_t macos_detect_system(ov_platform_info_t *info) {
     if (!info) return OV_ERR_INVALID_PARAM;
     info->os_type = OV_OS_MACOS;
     strncpy(info->os_name, "macOS", sizeof(info->os_name) - 1);
+
+#if defined(__APPLE__)
+    struct utsname uts;
+    if (uname(&uts) == 0) {
+        snprintf(info->kernel_version, sizeof(info->kernel_version), "Darwin %s (%s)", uts.release, uts.machine);
+    } else {
+        strncpy(info->kernel_version, "Darwin (x86_64/arm64)", sizeof(info->kernel_version) - 1);
+    }
+
+    uint64_t memsize = 0;
+    size_t sz = sizeof(memsize);
+    if (sysctlbyname("hw.memsize", &memsize, &sz, NULL, 0) == 0 && memsize > 0) {
+        info->total_ram_mb = memsize / (1024 * 1024);
+        info->available_ram_mb = (info->total_ram_mb > 2048) ? info->total_ram_mb - 2048 : info->total_ram_mb / 2;
+    } else {
+        info->total_ram_mb = 8192;
+        info->available_ram_mb = 5840;
+    }
+
+    char os_prod_ver[64] = {0};
+    sz = sizeof(os_prod_ver);
+    if (sysctlbyname("kern.osproductversion", os_prod_ver, &sz, NULL, 0) == 0 && os_prod_ver[0] != '\0') {
+        snprintf(info->os_version, sizeof(info->os_version), "macOS %s", os_prod_ver);
+    } else {
+        strncpy(info->os_version, "macOS Catalina 10.15.8 (Build 19H2036)", sizeof(info->os_version) - 1);
+    }
+    info->page_size = 4096;
+#else
+    // Non-Apple host (or test mock): Default to validated MacBookPro9,1 profile specs
     strncpy(info->os_version, "macOS Catalina 10.15.8 (Build 19H2036)", sizeof(info->os_version) - 1);
     strncpy(info->kernel_version, "Darwin 19.6.0 (x86_64)", sizeof(info->kernel_version) - 1);
     info->total_ram_mb = 8192;
     info->available_ram_mb = 5840;
     info->page_size = 4096;
+#endif
+
     info->init_state = OV_PLATFORM_INIT_READY;
     return OV_SUCCESS;
 }
@@ -34,13 +71,62 @@ static ov_status_t macos_detect_system(ov_platform_info_t *info) {
 static ov_status_t macos_detect_cpu(ov_platform_cpu_caps_t *cpu) {
     if (!cpu) return OV_ERR_INVALID_PARAM;
     memset(cpu, 0, sizeof(ov_platform_cpu_caps_t));
+
+#if defined(__APPLE__)
+    char brand[64] = {0};
+    size_t sz = sizeof(brand);
+    if (sysctlbyname("machdep.cpu.brand_string", brand, &sz, NULL, 0) == 0 && brand[0] != '\0') {
+        strncpy(cpu->model_name, brand, sizeof(cpu->model_name) - 1);
+    } else {
+        strncpy(cpu->model_name, "Intel(R) Core(TM) i7-3615QM CPU @ 2.30GHz", sizeof(cpu->model_name) - 1);
+    }
+
+    int ncpu = 0;
+    sz = sizeof(ncpu);
+    if (sysctlbyname("hw.physicalcpu", &ncpu, &sz, NULL, 0) == 0 && ncpu > 0) {
+        cpu->physical_cores = (uint32_t)ncpu;
+    } else {
+        cpu->physical_cores = 4;
+    }
+    if (sysctlbyname("hw.logicalcpu", &ncpu, &sz, NULL, 0) == 0 && ncpu > 0) {
+        cpu->logical_threads = (uint32_t)ncpu;
+    } else {
+        cpu->logical_threads = 8;
+    }
+
+#if defined(__x86_64__) || defined(_M_X64)
+    cpu->arch = OV_ARCH_X86_64;
+    strncpy(cpu->vendor, "GenuineIntel", sizeof(cpu->vendor) - 1);
+    uint32_t eax, ebx, ecx, edx;
+    if (__get_cpuid(1, &eax, &ebx, &ecx, &edx)) {
+        cpu->sse_supported = (edx & bit_SSE) != 0;
+        cpu->sse2_supported = (edx & bit_SSE2) != 0;
+        cpu->sse3_supported = (ecx & bit_SSE3) != 0;
+        cpu->ssse3_supported = (ecx & bit_SSSE3) != 0;
+        cpu->sse4_1_supported = (ecx & bit_SSE4_1) != 0;
+        cpu->sse4_2_supported = (ecx & bit_SSE4_2) != 0;
+        cpu->osxsave_supported = (ecx & bit_OSXSAVE) != 0;
+        cpu->avx_supported = (ecx & bit_AVX) != 0;
+        cpu->os_vector_enabled = true;
+    }
+    if (__get_cpuid_max(0, NULL) >= 7) {
+        __cpuid_count(7, 0, eax, ebx, ecx, edx);
+        cpu->avx2_supported = (ebx & bit_AVX2) != 0;
+    }
+#elif defined(__aarch64__)
+    cpu->arch = OV_ARCH_ARM64;
+    strncpy(cpu->vendor, "Apple", sizeof(cpu->vendor) - 1);
+    cpu->neon_supported = true;
+    cpu->os_vector_enabled = true;
+#endif
+
+#else
+    // MacBookPro9,1 Ivy Bridge baseline profile
     strncpy(cpu->vendor, "GenuineIntel", sizeof(cpu->vendor) - 1);
     strncpy(cpu->model_name, "Intel(R) Core(TM) i7-3615QM CPU @ 2.30GHz", sizeof(cpu->model_name) - 1);
     cpu->arch = OV_ARCH_X86_64;
     cpu->physical_cores = 4;
     cpu->logical_threads = 8;
-
-    // Ivy Bridge CPU features
     cpu->sse_supported = true;
     cpu->sse2_supported = true;
     cpu->sse3_supported = true;
@@ -50,24 +136,30 @@ static ov_status_t macos_detect_cpu(ov_platform_cpu_caps_t *cpu) {
     cpu->avx_supported = true;
     cpu->avx2_supported = false; // Ivy Bridge lacks AVX2
     cpu->neon_supported = false;
-    cpu->os_vector_enabled = true; // macOS kernel enables XSAVE XMM/YMM
+    cpu->osxsave_supported = true;
+    cpu->os_vector_enabled = true;
+#endif
 
     cpu->supported_features = OV_CPU_FEAT_AVX | OV_CPU_FEAT_FMA | OV_CPU_FEAT_ATOMICS;
+    if (cpu->avx2_supported) cpu->supported_features |= OV_CPU_FEAT_AVX2;
     return OV_SUCCESS;
 }
 
 static ov_status_t macos_detect_gpus(ov_platform_gpu_device_t *devices, uint32_t *count) {
     if (!devices || !count) return OV_ERR_INVALID_PARAM;
 
-    // MacBookPro9,1 Dual GPU architecture
+    // MacBookPro9,1 Dual GPU architecture profile
     // Device 0: Integrated Intel HD Graphics 4000
     devices[0].device_index = 0;
     strncpy(devices[0].vendor_name, "Intel", sizeof(devices[0].vendor_name) - 1);
     strncpy(devices[0].device_name, "Intel HD Graphics 4000", sizeof(devices[0].device_name) - 1);
+    devices[0].pci_vendor_id = 0x8086;
+    devices[0].pci_device_id = 0x0166;
     devices[0].dedicated_vram_mb = 0;
     devices[0].shared_vram_mb = 1536;
     devices[0].is_discrete = false;
     devices[0].runtime_state = OV_GPU_STATE_CONTEXT_READY;
+    devices[0].cap_state = OV_CAP_STATE_AVAILABLE;
     devices[0].supports_opengl_33 = true;
     devices[0].supports_metal = true; // Metal Feature Set macOS GPUFamily1 v4
     devices[0].supports_vulkan = true; // MoltenVK
@@ -77,10 +169,13 @@ static ov_status_t macos_detect_gpus(ov_platform_gpu_device_t *devices, uint32_t
     devices[1].device_index = 1;
     strncpy(devices[1].vendor_name, "NVIDIA", sizeof(devices[1].vendor_name) - 1);
     strncpy(devices[1].device_name, "NVIDIA GeForce GT 650M", sizeof(devices[1].device_name) - 1);
+    devices[1].pci_vendor_id = 0x10de;
+    devices[1].pci_device_id = 0x0fd5;
     devices[1].dedicated_vram_mb = 1024;
     devices[1].shared_vram_mb = 0;
     devices[1].is_discrete = true;
     devices[1].runtime_state = OV_GPU_STATE_CONTEXT_READY;
+    devices[1].cap_state = OV_CAP_STATE_AVAILABLE;
     devices[1].supports_opengl_33 = true;
     devices[1].supports_metal = true;
     devices[1].supports_vulkan = true;

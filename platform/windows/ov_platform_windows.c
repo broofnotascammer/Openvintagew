@@ -7,15 +7,40 @@
 #include <windows.h>
 #endif
 
+#if defined(__x86_64__) || defined(_M_X64)
+#include <cpuid.h>
+#endif
+
 static ov_status_t windows_detect_system(ov_platform_info_t *info) {
     if (!info) return OV_ERR_INVALID_PARAM;
     info->os_type = OV_OS_WINDOWS;
     strncpy(info->os_name, "Windows", sizeof(info->os_name) - 1);
+
+#if defined(_WIN32) || defined(_WIN64)
+    MEMORYSTATUSEX mem_status;
+    mem_status.dwLength = sizeof(mem_status);
+    if (GlobalMemoryStatusEx(&mem_status)) {
+        info->total_ram_mb = mem_status.ullTotalPhys / (1024 * 1024);
+        info->available_ram_mb = mem_status.ullAvailPhys / (1024 * 1024);
+    } else {
+        info->total_ram_mb = 16384;
+        info->available_ram_mb = 10240;
+    }
+
+    SYSTEM_INFO sys_info;
+    GetNativeSystemInfo(&sys_info);
+    info->page_size = sys_info.dwPageSize ? sys_info.dwPageSize : 4096;
+
+    strncpy(info->os_version, "Microsoft Windows (NT Kernel)", sizeof(info->os_version) - 1);
+    strncpy(info->kernel_version, "NT 10.0 (x86_64)", sizeof(info->kernel_version) - 1);
+#else
     strncpy(info->os_version, "Windows 10 / 11 (x86_64)", sizeof(info->os_version) - 1);
     strncpy(info->kernel_version, "NT 10.0 (x86_64)", sizeof(info->kernel_version) - 1);
     info->total_ram_mb = 16384;
     info->available_ram_mb = 10240;
     info->page_size = 4096;
+#endif
+
     info->init_state = OV_PLATFORM_INIT_READY;
     return OV_SUCCESS;
 }
@@ -23,12 +48,40 @@ static ov_status_t windows_detect_system(ov_platform_info_t *info) {
 static ov_status_t windows_detect_cpu(ov_platform_cpu_caps_t *cpu) {
     if (!cpu) return OV_ERR_INVALID_PARAM;
     memset(cpu, 0, sizeof(ov_platform_cpu_caps_t));
-    strncpy(cpu->vendor, "GenuineIntel", sizeof(cpu->vendor) - 1);
-    strncpy(cpu->model_name, "Intel(R) Core(TM) / AMD Ryzen(TM) Processor", sizeof(cpu->model_name) - 1);
     cpu->arch = OV_ARCH_X86_64;
+
+#if defined(_WIN32) || defined(_WIN64)
+    SYSTEM_INFO sys_info;
+    GetNativeSystemInfo(&sys_info);
+    cpu->logical_threads = sys_info.dwNumberOfProcessors ? sys_info.dwNumberOfProcessors : 8;
+    cpu->physical_cores = (cpu->logical_threads >= 2) ? cpu->logical_threads / 2 : 1;
+#else
     cpu->physical_cores = 4;
     cpu->logical_threads = 8;
+#endif
 
+#if defined(__x86_64__) || defined(_M_X64)
+    uint32_t eax, ebx, ecx, edx;
+    if (__get_cpuid(1, &eax, &ebx, &ecx, &edx)) {
+        cpu->sse_supported = (edx & bit_SSE) != 0;
+        cpu->sse2_supported = (edx & bit_SSE2) != 0;
+        cpu->sse3_supported = (ecx & bit_SSE3) != 0;
+        cpu->ssse3_supported = (ecx & bit_SSSE3) != 0;
+        cpu->sse4_1_supported = (ecx & bit_SSE4_1) != 0;
+        cpu->sse4_2_supported = (ecx & bit_SSE4_2) != 0;
+        cpu->osxsave_supported = (ecx & bit_OSXSAVE) != 0;
+        cpu->avx_supported = (ecx & bit_AVX) != 0;
+        cpu->os_vector_enabled = true;
+    }
+    if (__get_cpuid_max(0, NULL) >= 7) {
+        __cpuid_count(7, 0, eax, ebx, ecx, edx);
+        cpu->avx2_supported = (ebx & bit_AVX2) != 0;
+    }
+    strncpy(cpu->vendor, "GenuineIntel", sizeof(cpu->vendor) - 1);
+    strncpy(cpu->model_name, "Intel(R) Core(TM) / AMD Ryzen(TM) Processor", sizeof(cpu->model_name) - 1);
+#else
+    strncpy(cpu->vendor, "GenuineIntel", sizeof(cpu->vendor) - 1);
+    strncpy(cpu->model_name, "Intel(R) Core(TM) / AMD Ryzen(TM) Processor", sizeof(cpu->model_name) - 1);
     cpu->sse_supported = true;
     cpu->sse2_supported = true;
     cpu->sse3_supported = true;
@@ -38,7 +91,9 @@ static ov_status_t windows_detect_cpu(ov_platform_cpu_caps_t *cpu) {
     cpu->avx_supported = true;
     cpu->avx2_supported = true;
     cpu->neon_supported = false;
-    cpu->os_vector_enabled = true; // Windows OS XSAVE support active
+    cpu->osxsave_supported = true;
+    cpu->os_vector_enabled = true;
+#endif
 
     cpu->supported_features = OV_CPU_FEAT_AVX | OV_CPU_FEAT_AVX2 | OV_CPU_FEAT_FMA | OV_CPU_FEAT_ATOMICS;
     return OV_SUCCESS;
@@ -50,10 +105,13 @@ static ov_status_t windows_detect_gpus(ov_platform_gpu_device_t *devices, uint32
     devices[0].device_index = 0;
     strncpy(devices[0].vendor_name, "Direct3D / WDDM Driver", sizeof(devices[0].vendor_name) - 1);
     strncpy(devices[0].device_name, "Direct3D 11/12 & OpenGL Core Device", sizeof(devices[0].device_name) - 1);
+    devices[0].pci_vendor_id = 0x8086;
+    devices[0].pci_device_id = 0x1234;
     devices[0].dedicated_vram_mb = 4096;
     devices[0].shared_vram_mb = 8192;
     devices[0].is_discrete = true;
     devices[0].runtime_state = OV_GPU_STATE_CONTEXT_READY;
+    devices[0].cap_state = OV_CAP_STATE_AVAILABLE;
     devices[0].supports_opengl_33 = true;
     devices[0].supports_metal = false;
     devices[0].supports_vulkan = true;

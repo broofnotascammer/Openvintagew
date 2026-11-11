@@ -51,10 +51,11 @@ interface TestResult {
 export default function App() {
   const [activeTab, setActiveTab] = useState<'platform-phase15' | 'gpu-phase14' | 'cpu-phase13' | 'cpu-phase12' | 'pipeline' | 'runtime' | 'status-matrix' | 'picker' | 'qemu' | 'safety' | 'usb' | 'telemetry'>('platform-phase15');
 
-  // Phase 15 Cross-Platform Backends State
+  // Phase 15.1 Real Hardware Discovery & Mode State
   const [platformInfo, setPlatformInfo] = useState<any>(null);
   const [platformCaps, setPlatformCaps] = useState<any>(null);
   const [selectedPlatformView, setSelectedPlatformView] = useState<'macOS' | 'Linux' | 'Windows'>('macOS');
+  const [discoveryMode, setDiscoveryMode] = useState<'REAL' | 'MOCK'>('REAL');
   const [glslLifecycleResult, setGlslLifecycleResult] = useState<any>(null);
   const [platformLoading, setPlatformLoading] = useState<boolean>(false);
 
@@ -188,6 +189,23 @@ export default function App() {
       setGpuError(err.message || 'Network error');
     } finally {
       setGpuLoading(false);
+    }
+  };
+
+  const handleToggleDiscoveryMode = async (mode: 'REAL' | 'MOCK') => {
+    setPlatformLoading(true);
+    try {
+      await fetch('/api/platform/mode', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode, profileName: 'MacBookPro9,1' })
+      });
+      setDiscoveryMode(mode);
+      await handleFetchPlatformData();
+    } catch (err) {
+      console.error('Failed to toggle discovery mode:', err);
+    } finally {
+      setPlatformLoading(false);
     }
   };
 
@@ -585,34 +603,60 @@ export default function App() {
       <main className="flex-1 p-6 max-w-7xl mx-auto w-full space-y-6">
         {activeTab === 'platform-phase15' && (
           <div className="space-y-6">
-            {/* Phase 15 Architectural Banner */}
+            {/* Phase 15.1 Architectural Banner */}
             <div className="bg-gradient-to-r from-slate-900 via-blue-950/40 to-slate-900 border border-blue-900/50 rounded-xl p-5 shadow-lg">
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
                   <div className="flex items-center gap-2">
                     <span className="px-2 py-0.5 rounded text-[10px] font-mono font-semibold bg-blue-950 text-blue-400 border border-blue-800">
-                      PHASE 15
+                      PHASE 15.1
                     </span>
                     <h2 className="text-lg font-bold text-white tracking-tight">
-                      Cross-Platform Native Backends &amp; GPU Execution Pipeline
+                      Real Native Hardware Discovery &amp; Platform Detection
                     </h2>
+                    <span className={`text-[10px] font-mono px-2 py-0.5 rounded border ${
+                      discoveryMode === 'REAL'
+                        ? 'bg-emerald-950 text-emerald-400 border-emerald-800'
+                        : 'bg-amber-950 text-amber-400 border-amber-800'
+                    }`}>
+                      {discoveryMode === 'REAL' ? 'MODE: REAL HARDWARE' : 'MODE: SIMULATED PROFILE (MacBookPro9,1)'}
+                    </span>
                   </div>
                   <p className="text-xs text-slate-400 mt-1">
-                    Unified Platform Abstraction &bull; macOS Catalina (MBP9,1 Dual-GPU), Linux &amp; Windows Adapters &bull; Phase 14 GLSL 330 Execution Lifecycle &bull; OVResolver Hardware Integration
+                    Authentic OS Kernel &bull; CPUID + XGETBV Vector Enablement &bull; /proc/meminfo RAM &bull; Sysfs / DRM Multi-GPU Enumeration &bull; Explicit Mock Isolation
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="px-3 py-1 rounded-lg bg-emerald-950/60 text-emerald-400 border border-emerald-800 text-xs font-mono flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                    ALL ADAPTERS LOADED
-                  </span>
+                  {/* Mode Toggle Switch */}
+                  <div className="flex items-center bg-slate-950 border border-slate-800 rounded-lg p-0.5 text-xs">
+                    <button
+                      onClick={() => handleToggleDiscoveryMode('REAL')}
+                      className={`px-2.5 py-1 rounded-md transition font-medium ${
+                        discoveryMode === 'REAL'
+                          ? 'bg-emerald-600 text-white shadow-sm'
+                          : 'text-slate-400 hover:text-slate-200'
+                      }`}
+                    >
+                      Real Hardware
+                    </button>
+                    <button
+                      onClick={() => handleToggleDiscoveryMode('MOCK')}
+                      className={`px-2.5 py-1 rounded-md transition font-medium ${
+                        discoveryMode === 'MOCK'
+                          ? 'bg-amber-600 text-white shadow-sm'
+                          : 'text-slate-400 hover:text-slate-200'
+                      }`}
+                    >
+                      Mock MBP9,1
+                    </button>
+                  </div>
                   <button
                     onClick={handleFetchPlatformData}
                     disabled={platformLoading}
                     className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white font-medium text-xs shadow-md transition flex items-center gap-1.5"
                   >
                     <RefreshCw className={`w-3.5 h-3.5 ${platformLoading ? 'animate-spin' : ''}`} />
-                    Refresh Capabilities
+                    Refresh
                   </button>
                 </div>
               </div>

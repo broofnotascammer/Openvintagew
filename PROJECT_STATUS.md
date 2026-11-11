@@ -1,6 +1,6 @@
 # OpenVintage Project Status
 
-## Current Phase: Phase 15 — Cross-Platform Native Backends & GPU Integration
+## Current Phase: Phase 15.1 — Real Native Hardware Discovery & Platform Detection
 **Status**: Completed and Verified
 
 ---
@@ -18,6 +18,7 @@ The project progresses through sequential developmental phases, culminating in a
 | **Phase 13** — DBT, NEON & Guest Virtual MMU | **COMPLETED** | Integration + Host JIT | JIT register manager ($X0$–$X30$, $XZR$, $SP$, $W$/$X$ width), 14 condition codes, DBT trace cache & direct block linking (threshold 5), ARM64 NEON decoding & SSE4.1 host translation with scalar equivalence, two-level page table & 64-entry associative TLB with structured faults. |
 | **Phase 14** — Real OVIR-GPU Shader Translation | **COMPLETED** | Integration + Host JIT | Real SPIR-V bitstream parser & header validator, typed architecture-neutral GPU IR, constant folding & dead code elimination passes, GLSL 330 Core emitter, operation reconstruction (matrix-vector decomposition), driver compilation verification. |
 | **Phase 15** — Cross-Platform Native Backends & GPU Integration | **COMPLETED** | Integration + Host JIT | Unified platform interface (`core/platform/`), macOS Catalina (MacBookPro9,1 dual-GPU), Linux (Mesa/Vulkan), and Windows (WDDM/D3D11) adapters, runtime CPU/GPU capability discovery, 9-stage shader execution lifecycle, OVResolver hardware integration. |
+| **Phase 15.1** — Real Native Hardware Discovery & Platform Detection | **COMPLETED** | Integration + Host Discovery | Authentic OS kernel discovery via `uname()`, real RAM via `/proc/meminfo` & `sysconf`, CPUID + XGETBV OS vector enablement verification (`XCR0[2:1] == 0x6`), sysfs `/sys/class/drm/` multi-GPU enumeration with PCI vendor mapping, intelligent discrete GPU VRAM priority ranking, and explicit mock profile isolation (`MacBookPro9,1`). |
 | **Subsequent Development Phases** (Phase 16+) | **PLANNED** | Unit + Integration + Emulation | OS-scale system emulation, multi-threaded CPU translation, extended shader backends, and pipeline optimizations. |
 | **Final Phase — External USB Hardware Validation** | **PENDING ALL DEV PHASES** | Physical Hardware (Tier 5) | Comprehensive physical testing on MacBookPro9,1 strictly using dedicated external USB drive. Internal macOS installation remains 100% untouched. |
 
@@ -42,6 +43,7 @@ The project progresses through sequential developmental phases, culminating in a
 * **Phase 13 DBT, NEON & Guest MMU**: 136 / 136 C assertions passing
 * **Phase 14 Real OVIR-GPU Shader Translation**: 36 / 36 C assertions passing
 * **Phase 15 Cross-Platform Backends & GPU Integration**: 42 / 42 C assertions passing
-* **Total C Assertions**: **433 / 433 passing (100% SUCCESS)**
-* **Node Test Suites**: 7 suites, 56 / 56 individual tests passing
+* **Phase 15.1 Real Hardware Discovery**: 22 / 22 C assertions passing
+* **Total C Assertions**: **455 / 455 passing (100% SUCCESS)**
+* **Node Test Suites**: 9 suites, 58 / 58 individual tests passing
 * **TypeScript / Dev Server**: Zero compile or lint errors (`tsc --noEmit`)
