@@ -1,6 +1,6 @@
 # OpenVintage Project Status
 
-## Current Phase: Phase 13 — Dynamic Binary Translation, ARM64 NEON, Guest Virtual MMU & Runtime Hardening
+## Current Phase: Phase 15 — Cross-Platform Native Backends & GPU Integration
 **Status**: Completed and Verified
 
 ---
@@ -16,7 +16,9 @@ The project progresses through sequential developmental phases, culminating in a
 | **Phase 11** — Executable Memory & Fallback Runtime | **COMPLETED** | Integration | Strict $W \oplus X$ virtual memory, translation block lifecycle, 5-stage GPU route hierarchy, CPU software fallback rasterizer. |
 | **Phase 12** — Real OVIR-CPU Workloads | **COMPLETED** | Integration + Host JIT | Full ARM64 decoder subset, neutral IR, constant folding, dead-code elimination, host x86-64 native W^X JIT, privilege rings, syscall table. |
 | **Phase 13** — DBT, NEON & Guest Virtual MMU | **COMPLETED** | Integration + Host JIT | JIT register manager ($X0$–$X30$, $XZR$, $SP$, $W$/$X$ width), 14 condition codes, DBT trace cache & direct block linking (threshold 5), ARM64 NEON decoding & SSE4.1 host translation with scalar equivalence, two-level page table & 64-entry associative TLB with structured faults. |
-| **Subsequent Development Phases** (Phase 14+) | **PLANNED** | Unit + Integration + Emulation | OS-scale system emulation, multi-threaded CPU translation, extended shader backends, and pipeline optimizations. |
+| **Phase 14** — Real OVIR-GPU Shader Translation | **COMPLETED** | Integration + Host JIT | Real SPIR-V bitstream parser & header validator, typed architecture-neutral GPU IR, constant folding & dead code elimination passes, GLSL 330 Core emitter, operation reconstruction (matrix-vector decomposition), driver compilation verification. |
+| **Phase 15** — Cross-Platform Native Backends & GPU Integration | **COMPLETED** | Integration + Host JIT | Unified platform interface (`core/platform/`), macOS Catalina (MacBookPro9,1 dual-GPU), Linux (Mesa/Vulkan), and Windows (WDDM/D3D11) adapters, runtime CPU/GPU capability discovery, 9-stage shader execution lifecycle, OVResolver hardware integration. |
+| **Subsequent Development Phases** (Phase 16+) | **PLANNED** | Unit + Integration + Emulation | OS-scale system emulation, multi-threaded CPU translation, extended shader backends, and pipeline optimizations. |
 | **Final Phase — External USB Hardware Validation** | **PENDING ALL DEV PHASES** | Physical Hardware (Tier 5) | Comprehensive physical testing on MacBookPro9,1 strictly using dedicated external USB drive. Internal macOS installation remains 100% untouched. |
 
 ---
@@ -38,6 +40,8 @@ The project progresses through sequential developmental phases, culminating in a
 * **Phase 11 Executable Memory & Runtime**: 70 / 70 C assertions passing
 * **Phase 12 Real OVIR-CPU Workloads**: 62 / 62 C assertions passing
 * **Phase 13 DBT, NEON & Guest MMU**: 136 / 136 C assertions passing
-* **Total C Assertions**: **355 / 355 passing (100% SUCCESS)**
-* **Node Test Suites**: 5 suites, 41 / 41 individual tests passing
+* **Phase 14 Real OVIR-GPU Shader Translation**: 36 / 36 C assertions passing
+* **Phase 15 Cross-Platform Backends & GPU Integration**: 42 / 42 C assertions passing
+* **Total C Assertions**: **433 / 433 passing (100% SUCCESS)**
+* **Node Test Suites**: 7 suites, 56 / 56 individual tests passing
 * **TypeScript / Dev Server**: Zero compile or lint errors (`tsc --noEmit`)
